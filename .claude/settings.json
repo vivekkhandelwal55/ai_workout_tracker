@@ -1,0 +1,46 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/Vivek-Khandelwal/Development/personal/ai_workout_tracker_app && flutter analyze --no-pub 2>&1 | tail -20"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/Vivek-Khandelwal/Development/personal/ai_workout_tracker_app && grep -rn 'print(' lib/ --include='*.dart' | grep -v '// ok' | grep -v 'debugPrint' && echo 'WARNING: raw print() statements found — use debugPrint or a logger' || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/Vivek-Khandelwal/Development/personal/ai_workout_tracker_app && if echo \"$CLAUDE_TOOL_INPUT\" | grep -q 'android/app/src/main/AndroidManifest.xml'; then echo 'ANDROID MANIFEST EDIT DETECTED — ensure every new <uses-permission> has a comment explaining why it is needed'; fi"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze*)",
+      "Bash(flutter test*)",
+      "Bash(flutter build*)",
+      "Bash(flutter run*)",
+      "Bash(flutter pub*)",
+      "Bash(dart run build_runner*)",
+      "Bash(grep*)"
+    ]
+  }
+}
