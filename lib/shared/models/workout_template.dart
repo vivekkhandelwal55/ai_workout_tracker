@@ -1,73 +1,36 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
 import 'exercise.dart';
 
-class WorkoutTemplate {
-  final String id;
-  final String name; // e.g. "PUSH A", "LEGS B"
-  final String? description;
-  final List<TemplateExercise> exercises;
-  final int estimatedMinutes;
-  final DateTime? lastUsed;
+part 'workout_template.freezed.dart';
+part 'workout_template.g.dart';
 
-  const WorkoutTemplate({
-    required this.id,
-    required this.name,
-    this.description,
-    required this.exercises,
-    required this.estimatedMinutes,
-    this.lastUsed,
-  });
-
-  WorkoutTemplate copyWith({
-    String? id,
-    String? name,
-    String? description,
-    List<TemplateExercise>? exercises,
-    int? estimatedMinutes,
-    DateTime? lastUsed,
-  }) {
-    return WorkoutTemplate(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      exercises: exercises ?? this.exercises,
-      estimatedMinutes: estimatedMinutes ?? this.estimatedMinutes,
-      lastUsed: lastUsed ?? this.lastUsed,
-    );
-  }
-}
-
-class TemplateExercise {
-  final String exerciseId;
-  final String exerciseName;
-  final int defaultSets;
-  final int? defaultReps;
-  final double? defaultWeight;
-  final TrackingUnit trackingUnit;
-
-  const TemplateExercise({
-    required this.exerciseId,
-    required this.exerciseName,
-    required this.defaultSets,
-    this.defaultReps,
-    this.defaultWeight,
-    required this.trackingUnit,
-  });
-
-  TemplateExercise copyWith({
-    String? exerciseId,
-    String? exerciseName,
-    int? defaultSets,
+@freezed
+sealed class TemplateExercise with _$TemplateExercise {
+  const factory TemplateExercise({
+    required String exerciseId,
+    required String exerciseName,
+    required int defaultSets,
     int? defaultReps,
     double? defaultWeight,
-    TrackingUnit? trackingUnit,
-  }) {
-    return TemplateExercise(
-      exerciseId: exerciseId ?? this.exerciseId,
-      exerciseName: exerciseName ?? this.exerciseName,
-      defaultSets: defaultSets ?? this.defaultSets,
-      defaultReps: defaultReps ?? this.defaultReps,
-      defaultWeight: defaultWeight ?? this.defaultWeight,
-      trackingUnit: trackingUnit ?? this.trackingUnit,
-    );
-  }
+    required TrackingUnit trackingUnit,
+  }) = _TemplateExercise;
+
+  factory TemplateExercise.fromJson(Map<String, dynamic> json) =>
+      _$TemplateExerciseFromJson(json);
+}
+
+@freezed
+sealed class WorkoutTemplate with _$WorkoutTemplate {
+  const factory WorkoutTemplate({
+    required String id,
+    required String name,
+    String? description,
+    required List<TemplateExercise> exercises,
+    required int estimatedMinutes,
+    DateTime? lastUsed,
+  }) = _WorkoutTemplate;
+
+  factory WorkoutTemplate.fromJson(Map<String, dynamic> json) =>
+      _$WorkoutTemplateFromJson(json);
 }

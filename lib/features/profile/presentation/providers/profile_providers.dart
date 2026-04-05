@@ -5,7 +5,7 @@ import '../../domain/profile_repository.dart';
 import '../../../../shared/models/user_profile.dart';
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
-  return StubProfileRepository();
+  return ProfileRepositoryImpl();
 });
 
 final userProfileProvider =

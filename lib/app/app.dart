@@ -12,7 +12,7 @@ class App extends ConsumerWidget {
       title: 'TRAIN',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      routerConfig: appRouter,
+      routerConfig: ref.watch(appRouterProvider),
     );
   }
 }

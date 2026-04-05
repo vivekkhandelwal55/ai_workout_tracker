@@ -19,6 +19,14 @@ class CacheFailure extends Failure {
   const CacheFailure([super.message = 'Cache error occurred']);
 }
 
+class ValidationFailure extends Failure {
+  const ValidationFailure([super.message = 'Validation failed']);
+}
+
 class UnknownFailure extends Failure {
   const UnknownFailure([super.message = 'An unknown error occurred']);
+}
+
+class FirebaseFailure extends Failure {
+  const FirebaseFailure([super.message = 'A Firestore error occurred']);
 }

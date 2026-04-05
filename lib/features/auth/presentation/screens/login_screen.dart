@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:ai_workout_tracker_app/app/router/app_router.dart';
 import 'package:ai_workout_tracker_app/app/theme/app_theme.dart';
 import 'package:ai_workout_tracker_app/features/auth/presentation/providers/auth_providers.dart';
+import 'package:ai_workout_tracker_app/shared/models/user_profile.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -29,25 +30,102 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _handleSignIn() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
-    final success = await ref
+    await ref
         .read(authNotifierProvider.notifier)
-        .signIn(email, password);
-    if (!mounted) return;
-    if (success) {
-      context.go(AppRoutes.home);
-    }
+        .signInWithEmail(email, password);
+    // Navigation is handled by router redirect — no manual context.go needed
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    await ref.read(authNotifierProvider.notifier).signInWithGoogle();
+  }
+
+  void _showForgotPasswordDialog() {
+    final controller = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        title: Text(
+          'RESET PASSWORD',
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.4,
+            color: Colors.white,
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.emailAddress,
+          autocorrect: false,
+          style: GoogleFonts.lexend(color: AppColors.onSurface, fontSize: 14),
+          decoration: InputDecoration(
+            labelText: 'EMAIL',
+            labelStyle: GoogleFonts.lexend(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1.6,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(
+              'CANCEL',
+              style: GoogleFonts.lexend(
+                fontSize: 11,
+                color: AppColors.onSurfaceVariant,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              final email = controller.text.trim();
+              Navigator.of(dialogContext).pop();
+              if (email.isNotEmpty) {
+                await ref
+                    .read(authNotifierProvider.notifier)
+                    .sendPasswordResetEmail(email);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Password reset email sent'),
+                    ),
+                  );
+                }
+              }
+            },
+            child: Text(
+              'SEND',
+              style: GoogleFonts.lexend(
+                fontSize: 11,
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authNotifierProvider);
+    final isLoading = ref.watch(authNotifierProvider).isLoading;
 
-    ref.listen<AuthState>(authNotifierProvider, (previous, next) {
-      if (next.error != null && next.error != previous?.error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.error!)),
-        );
-      }
+    ref.listen<AsyncValue<UserProfile?>>(authNotifierProvider, (previous, next) {
+      next.whenOrNull(
+        error: (error, _) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error.toString())),
+          );
+        },
+      );
     });
 
     return Scaffold(
@@ -123,7 +201,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     color: AppColors.onSurfaceVariant,
                   ),
                   suffixIcon: TextButton(
-                    onPressed: () => context.go(AppRoutes.login),
+                    onPressed: _showForgotPasswordDialog,
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                     ),
@@ -144,7 +222,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               SizedBox(
                 width: double.infinity,
                 height: 52,
-                child: authState.isLoading
+                child: isLoading
                     ? const Center(
                         child: CircularProgressIndicator(
                           color: AppColors.primary,
@@ -202,7 +280,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () {},
+                      onPressed: isLoading ? null : _handleGoogleSignIn,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.onSurface,
                         side: const BorderSide(
@@ -257,10 +335,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            '',
-                            style: const TextStyle(fontSize: 14),
-                          ),
+                          const Text('', style: TextStyle(fontSize: 14)),
                           const SizedBox(width: 8),
                           Text(
                             'APPLE',
@@ -289,7 +364,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                   ),
                   GestureDetector(
-                    onTap: () => context.go(AppRoutes.userDetails),
+                    onTap: () => context.go(AppRoutes.register),
                     child: Text(
                       'Join Now',
                       style: GoogleFonts.lexend(

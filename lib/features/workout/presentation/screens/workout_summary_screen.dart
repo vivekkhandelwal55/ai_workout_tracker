@@ -55,24 +55,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
       }
     }
 
-    // Use stub PRs if none found
-    final displayPRs = prSets.isNotEmpty
-        ? prSets
-        : [
-            (
-              name: 'SQUAT (HIGH BAR)',
-              weight: 145.0,
-              reps: 5,
-              isVolume: false,
-            ),
-            (
-              name: 'BENCH PRESS',
-              weight: 100.0,
-              reps: 8,
-              isVolume: true,
-            ),
-          ];
-
+    final displayPRs = prSets;
     final exercises = session?.exercises ?? [];
 
     return Scaffold(
@@ -87,6 +70,18 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
+                      GestureDetector(
+                        onTap: () {
+                          ref.read(activeWorkoutProvider.notifier).reset();
+                          context.go(AppRoutes.home);
+                        },
+                        child: const Icon(
+                          Icons.arrow_back,
+                          color: AppColors.onSurfaceVariant,
+                          size: 24,
+                        ),
+                      ),
+                      const Spacer(),
                       Text(
                         'TRAIN',
                         style: GoogleFonts.lexend(
@@ -97,11 +92,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                         ),
                       ),
                       const Spacer(),
-                      Icon(
-                        Icons.settings_outlined,
-                        color: AppColors.onSurfaceVariant,
-                        size: 24,
-                      ),
+                      const SizedBox(width: 24),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -158,9 +149,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                             textBaseline: TextBaseline.alphabetic,
                             children: [
                               Text(
-                                session != null
-                                    ? session.durationMinutes.toString()
-                                    : '74',
+                                (session?.durationMinutes ?? 0).toString(),
                                 style: GoogleFonts.lexend(
                                   fontSize: 80,
                                   fontWeight: FontWeight.w800,
@@ -202,9 +191,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  session != null
-                                      ? _formatVolume(session.totalVolumeKg)
-                                      : '12.4K',
+                                  _formatVolume(session?.totalVolumeKg ?? 0),
                                   style: GoogleFonts.lexend(
                                     fontSize: 20,
                                     fontWeight: FontWeight.w700,
@@ -232,9 +219,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-                                      session != null
-                                          ? session.totalSets.toString()
-                                          : '22',
+                                      (session?.totalSets ?? 0).toString(),
                                       style: GoogleFonts.lexend(
                                         fontSize: 20,
                                         fontWeight: FontWeight.w700,
@@ -277,7 +262,16 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                       color: AppColors.outlineVariant,
                     ),
                     const SizedBox(height: 8),
-                    ...displayPRs.map((pr) => _PRRow(pr: pr)),
+                    if (displayPRs.isNotEmpty)
+                      ...displayPRs.map((pr) => _PRRow(pr: pr))
+                    else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Text(
+                          'NO PERSONAL RECORDS THIS SESSION',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ),
 
                     const SizedBox(height: 32),
 
@@ -295,7 +289,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                         ),
                         const Spacer(),
                         Text(
-                          '${exercises.isNotEmpty ? exercises.length : 3} TOTAL',
+                          '${exercises.length} TOTAL',
                           style: GoogleFonts.lexend(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -322,23 +316,14 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                           setsDescription: _buildSetsDescription(ex),
                         );
                       })
-                    else ...[
-                      _ExerciseRow(
-                        index: 1,
-                        name: 'SQUAT (HIGH BAR)',
-                        setsDescription: '5 SETS • 5+8 REPS',
+                    else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Text(
+                          'NO EXERCISES LOGGED',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
                       ),
-                      _ExerciseRow(
-                        index: 2,
-                        name: 'BENCH PRESS',
-                        setsDescription: '4 SETS • 8 REPS',
-                      ),
-                      _ExerciseRow(
-                        index: 3,
-                        name: 'DEADLIFT',
-                        setsDescription: '3 SETS • 5 REPS',
-                      ),
-                    ],
 
                     const SizedBox(height: 32),
 

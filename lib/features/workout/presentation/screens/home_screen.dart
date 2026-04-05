@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:ai_workout_tracker_app/app/theme/app_theme.dart';
 import 'package:ai_workout_tracker_app/app/router/app_router.dart';
+import 'package:ai_workout_tracker_app/features/auth/presentation/providers/auth_providers.dart';
+import 'package:ai_workout_tracker_app/features/routine/presentation/providers/routine_providers.dart';
 import 'package:ai_workout_tracker_app/features/workout/presentation/providers/workout_providers.dart';
 import 'package:ai_workout_tracker_app/features/stats/presentation/providers/stats_providers.dart';
 import 'package:ai_workout_tracker_app/shared/models/workout_template.dart';
@@ -14,24 +16,49 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final weeklyStatsAsync = ref.watch(weeklyStatsProvider('stub-user-001'));
-    final templatesAsync = ref.watch(workoutTemplatesProvider('stub-user-001'));
+    final userId =
+        ref.watch(authNotifierProvider).valueOrNull?.id ?? 'stub-user-001';
+    final weeklyStatsAsync = ref.watch(weeklyStatsProvider(userId));
+    final templatesAsync = ref.watch(workoutTemplatesProvider(userId));
 
     return Scaffold(
       backgroundColor: AppColors.surface,
+      floatingActionButton: _buildStartWorkoutFAB(context, ref),
       body: CustomScrollView(
         slivers: [
           SliverList(
             delegate: SliverChildListDelegate([
               _buildAppBar(context),
               _buildStatsSection(context, weeklyStatsAsync),
-              _buildRecommendedCard(context, ref),
+              const _RecommendedCard(),
               _buildTemplatesSection(context, ref, templatesAsync),
               _buildStrengthTrendsSection(context),
               const SizedBox(height: 32),
             ]),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStartWorkoutFAB(BuildContext context, WidgetRef ref) {
+    return FloatingActionButton.extended(
+      onPressed: () {
+        final userId = ref.read(authNotifierProvider).valueOrNull?.id ?? 'stub-user-001';
+        ref.read(activeWorkoutProvider.notifier).startWorkout(userId: userId);
+        context.push(AppRoutes.activeWorkout);
+      },
+      backgroundColor: AppColors.primary,
+      foregroundColor: AppColors.onPrimary,
+      elevation: 4,
+      icon: const Icon(Icons.play_arrow, size: 28),
+      label: Text(
+        'QUICK START',
+        style: GoogleFonts.lexend(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+        ),
       ),
     );
   }
@@ -84,96 +111,6 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecommendedCard(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-      child: Container(
-        color: AppColors.surfaceContainerLow,
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'RECOMMENDED',
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'PUSH HYPERTROPHY',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Targeting pectoral stability and tricep exhaustion with continuous eccentric loading.',
-              style: Theme.of(context).textTheme.bodySmall,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                _buildMiniStat(context, '24', ' MIN'),
-                const SizedBox(width: 16),
-                _buildMiniStat(context, '65', ' KG'),
-                const Spacer(),
-                SizedBox(
-                  height: 40,
-                  child: ElevatedButton(
-                    onPressed: () => context.push(AppRoutes.activeWorkout),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.onPrimary,
-                      elevation: 0,
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.zero,
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'START →',
-                      style: GoogleFonts.lexend(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                        color: AppColors.onPrimary,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMiniStat(BuildContext context, String value, String unit) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        Text(
-          value,
-          style: GoogleFonts.lexend(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
-        Text(
-          unit,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ],
-    );
-  }
-
   Widget _buildTemplatesSection(
     BuildContext context,
     WidgetRef ref,
@@ -195,7 +132,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               const Spacer(),
               TextButton(
-                onPressed: () {},
+                onPressed: () => context.go(AppRoutes.exercises),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.primary,
                   padding: EdgeInsets.zero,
@@ -461,49 +398,101 @@ class _TemplatesGrid extends StatelessWidget {
   }
 }
 
-class _TemplateCard extends StatelessWidget {
+class _TemplateCard extends ConsumerWidget {
   final WorkoutTemplate template;
 
   const _TemplateCard({required this.template});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.surfaceContainerLow,
-      padding: const EdgeInsets.all(16),
-      child: Stack(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                template.name.toUpperCase(),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () {
+        ref.read(activeWorkoutProvider.notifier).startWorkout(
+              userId: ref.read(authNotifierProvider).valueOrNull?.id ?? 'stub-user-001',
+              template: template,
+            );
+        context.push(AppRoutes.activeWorkout);
+      },
+      onLongPress: () {
+        _showTemplateOptions(context, ref, template);
+      },
+      child: Container(
+        color: AppColors.surfaceContainerLow,
+        padding: const EdgeInsets.all(16),
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  template.name.toUpperCase(),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${template.exercises.length} exercises',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Text(
-              '→',
-              style: TextStyle(
-                color: AppColors.onSurfaceVariant,
-                fontSize: 18,
+                const SizedBox(height: 4),
+                Text(
+                  '${template.exercises.length} exercises',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Text(
+                '→',
+                style: TextStyle(
+                  color: AppColors.onSurfaceVariant,
+                  fontSize: 18,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTemplateOptions(BuildContext context, WidgetRef ref, WorkoutTemplate template) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceContainerLow,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit, color: AppColors.onSurface),
+              title: Text(
+                'EDIT TEMPLATE',
+                style: GoogleFonts.lexend(color: AppColors.onSurface),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                context.push(AppRoutes.editTemplate, extra: template);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.play_arrow, color: AppColors.primary),
+              title: Text(
+                'START WORKOUT',
+                style: GoogleFonts.lexend(color: AppColors.primary),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                ref.read(activeWorkoutProvider.notifier).startWorkout(
+                  userId: ref.read(authNotifierProvider).valueOrNull?.id ?? 'stub-user-001',
+                  template: template,
+                );
+                context.push(AppRoutes.activeWorkout);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -514,28 +503,371 @@ class _NewTemplateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.outlineVariant, width: 1),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            '+',
-            style: TextStyle(
-              color: AppColors.primary,
-              fontSize: 28,
-              fontWeight: FontWeight.w300,
+    return GestureDetector(
+      onTap: () => context.push(AppRoutes.createTemplate),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.outlineVariant, width: 1),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '+',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: 28,
+                fontWeight: FontWeight.w300,
+              ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              'NEW TEMPLATE',
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Recommended card — driven by routine + today's day data
+// ---------------------------------------------------------------------------
+class _RecommendedCard extends ConsumerWidget {
+  const _RecommendedCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userId = ref.watch(authNotifierProvider).valueOrNull?.id ?? '';
+    final routineAsync = ref.watch(currentRoutineProvider);
+    final todayDay = ref.watch(todayRoutineDayProvider);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      child: routineAsync.when(
+        loading: () => const _RecommendedSkeleton(),
+        error: (_, _s) => const _RecommendedSkeleton(),
+        data: (routine) {
+          // State 1 — no routine
+          if (routine == null) {
+            return const _RecommendedNoRoutine();
+          }
+
+          // State 2 — rest day (no template linked)
+          if (todayDay == null || todayDay.routineDay.templateId == null) {
+            return _RecommendedRestDay(
+              routine: routine,
+              todayDay: todayDay,
+            );
+          }
+
+          // State 3 — workout day
+          final templateId = todayDay.routineDay.templateId!;
+          final templatesAsync = ref.watch(workoutTemplatesProvider(userId));
+          final WorkoutTemplate? template =
+              templatesAsync.valueOrNull?.cast<WorkoutTemplate?>().firstWhere(
+                    (t) => t?.id == templateId,
+                    orElse: () => null,
+                  );
+
+          return _RecommendedWorkoutDay(
+            routine: routine,
+            todayDay: todayDay,
+            template: template,
+            userId: userId,
+          );
+        },
+      ),
+    );
+  }
+}
+
+// Skeleton placeholder
+class _RecommendedSkeleton extends StatelessWidget {
+  const _RecommendedSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.surfaceContainerLow,
+      padding: const EdgeInsets.all(20),
+      height: 140,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('RECOMMENDED', style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 12),
+          Container(
+            height: 16,
+            width: 180,
+            color: AppColors.surfaceContainerHigh,
           ),
-          const SizedBox(height: 4),
-          Text(
-            'NEW TEMPLATE',
-            style: Theme.of(context).textTheme.labelSmall,
+          const SizedBox(height: 8),
+          Container(
+            height: 12,
+            width: 240,
+            color: AppColors.surfaceContainerHigh,
           ),
         ],
       ),
     );
   }
 }
+
+// State 1 — no routine set
+class _RecommendedNoRoutine extends StatelessWidget {
+  const _RecommendedNoRoutine();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.surfaceContainerLow,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('RECOMMENDED', style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 12),
+          Text(
+            'NO ROUTINE SET',
+            style: GoogleFonts.lexend(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.6,
+              color: AppColors.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Set up your training schedule to get\npersonalised daily recommendations.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: _CardButton(
+              label: 'SET ROUTINE →',
+              onPressed: () => context.push(AppRoutes.routine),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// State 2 — rest day
+class _RecommendedRestDay extends StatelessWidget {
+  final dynamic routine;
+  final dynamic todayDay;
+
+  const _RecommendedRestDay({required this.routine, required this.todayDay});
+
+  @override
+  Widget build(BuildContext context) {
+    final totalDays = (routine.days as List).length;
+    final dayNumber = todayDay != null ? todayDay.dayNumber as int : 0;
+
+    return Container(
+      color: AppColors.surfaceContainerLow,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'RECOMMENDED',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+              if (todayDay != null)
+                Text(
+                  'DAY $dayNumber OF $totalDays',
+                  style: GoogleFonts.lexend(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.4,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'REST',
+            style: GoogleFonts.lexend(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 2.0,
+              color: AppColors.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Today is a recovery day. Stay hydrated\nand focus on mobility work.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: _CardButton(
+              label: 'PLAN: $totalDays DAYS',
+              onPressed: () => context.push(AppRoutes.routine),
+              isSecondary: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// State 3 — workout day
+class _RecommendedWorkoutDay extends ConsumerWidget {
+  final dynamic routine;
+  final dynamic todayDay;
+  final WorkoutTemplate? template;
+  final String userId;
+
+  const _RecommendedWorkoutDay({
+    required this.routine,
+    required this.todayDay,
+    required this.template,
+    required this.userId,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final totalDays = (routine.days as List).length;
+    final dayNumber = todayDay.dayNumber as int;
+    final dayName =
+        (todayDay.routineDay.templateName as String?)?.toUpperCase() ??
+            todayDay.routineDay.name.toString().toUpperCase();
+
+    // Exercise preview from template
+    List<String> exerciseNames = [];
+    int extraCount = 0;
+    if (template != null) {
+      final exercises = template!.exercises;
+      exerciseNames = exercises.take(2).map((e) => e.exerciseName).toList();
+      extraCount = (exercises.length - 2).clamp(0, 999);
+    }
+
+    return Container(
+      color: AppColors.surfaceContainerLow,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'RECOMMENDED',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+              Text(
+                'DAY $dayNumber OF $totalDays',
+                style: GoogleFonts.lexend(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.4,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            dayName,
+            style: GoogleFonts.lexend(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.6,
+              color: AppColors.onSurface,
+            ),
+          ),
+          if (exerciseNames.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              exerciseNames.join(' \u2022 '),
+              style: Theme.of(context).textTheme.bodySmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (extraCount > 0)
+              Text(
+                '+ $extraCount more exercise${extraCount == 1 ? '' : 's'}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+          ],
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: _CardButton(
+              label: 'START \u2192',
+              onPressed: template == null
+                  ? null
+                  : () {
+                      ref.read(activeWorkoutProvider.notifier).startWorkout(
+                            userId: userId,
+                            template: template,
+                          );
+                      context.push(AppRoutes.activeWorkout);
+                    },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Compact inline button used inside recommended card
+class _CardButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+  final bool isSecondary;
+
+  const _CardButton({
+    required this.label,
+    this.onPressed,
+    this.isSecondary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor:
+              isSecondary ? AppColors.surfaceContainerHigh : AppColors.primary,
+          foregroundColor:
+              isSecondary ? AppColors.onSurface : AppColors.onPrimary,
+          elevation: 0,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.zero,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.lexend(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+            color: isSecondary ? AppColors.onSurface : AppColors.onPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+

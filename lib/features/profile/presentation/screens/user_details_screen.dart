@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:ai_workout_tracker_app/app/router/app_router.dart';
 import 'package:ai_workout_tracker_app/app/theme/app_theme.dart';
-import 'package:ai_workout_tracker_app/features/profile/presentation/providers/profile_providers.dart';
+import 'package:ai_workout_tracker_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:ai_workout_tracker_app/shared/models/user_profile.dart';
 
 class UserDetailsScreen extends ConsumerStatefulWidget {
@@ -35,28 +33,43 @@ class _UserDetailsScreenState extends ConsumerState<UserDetailsScreen> {
 
   Future<void> _handleContinue() async {
     final name = _nameController.text.trim().isEmpty
-        ? 'Athlete'
+        ? null
         : _nameController.text.trim();
-    final age = int.tryParse(_ageController.text) ?? 24;
-    final weight = double.tryParse(_weightController.text) ?? 82.0;
-    final height = double.tryParse(_heightController.text) ?? 185.0;
+    final age = int.tryParse(_ageController.text);
+    final weight = double.tryParse(_weightController.text);
+    final height = double.tryParse(_heightController.text);
 
-    final profile = UserProfile(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: name,
+    final currentUser = ref.read(authNotifierProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    final profile = currentUser.copyWith(
+      displayName: name,
       age: age,
-      weight: weight,
-      height: height,
+      weightKg: weight,
+      heightCm: height,
       primaryGoal: _selectedGoal,
+      onboardingComplete: true,
+      updatedAt: DateTime.now(),
     );
 
-    await ref.read(profileNotifierProvider.notifier).saveProfile(profile);
-    if (!mounted) return;
-    context.go(AppRoutes.home);
+    await ref.read(authNotifierProvider.notifier).updateProfile(profile);
+    // Router redirect handles navigation when onboardingComplete becomes true
   }
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = ref.watch(authNotifierProvider).isLoading;
+
+    ref.listen<AsyncValue<UserProfile?>>(authNotifierProvider, (previous, next) {
+      next.whenOrNull(
+        error: (error, _) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error.toString())),
+          );
+        },
+      );
+    });
+
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
@@ -154,11 +167,9 @@ class _UserDetailsScreenState extends ConsumerState<UserDetailsScreen> {
                         BorderSide(color: AppColors.outlineVariant, width: 1),
                   ),
                   focusedBorder: const UnderlineInputBorder(
-                    borderSide:
-                        BorderSide(color: AppColors.primary, width: 2),
+                    borderSide: BorderSide(color: AppColors.primary, width: 2),
                   ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
               const SizedBox(height: 24),
@@ -239,26 +250,32 @@ class _UserDetailsScreenState extends ConsumerState<UserDetailsScreen> {
               SizedBox(
                 width: double.infinity,
                 height: 52,
-                child: ElevatedButton(
-                  onPressed: _handleContinue,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.onPrimary,
-                    elevation: 0,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.zero,
-                    ),
-                  ),
-                  child: Text(
-                    'CONTINUE →',
-                    style: GoogleFonts.lexend(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.6,
-                      color: AppColors.onPrimary,
-                    ),
-                  ),
-                ),
+                child: isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : ElevatedButton(
+                        onPressed: _handleContinue,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.onPrimary,
+                          elevation: 0,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.zero,
+                          ),
+                        ),
+                        child: Text(
+                          'CONTINUE →',
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.6,
+                            color: AppColors.onPrimary,
+                          ),
+                        ),
+                      ),
               ),
             ],
           ),

@@ -37,3 +37,15 @@ class MonthlyFrequency {
     required this.workoutCount,
   });
 }
+
+class LifetimeStats {
+  final int totalSessions;
+  final double totalVolumeKg;
+  final int totalSets;
+
+  const LifetimeStats({
+    required this.totalSessions,
+    required this.totalVolumeKg,
+    required this.totalSets,
+  });
+}

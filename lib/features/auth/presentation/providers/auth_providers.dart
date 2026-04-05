@@ -1,68 +1,95 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../data/auth_repository_impl.dart';
-import '../../domain/auth_repository.dart';
+import '../../data/firebase_auth_data_source.dart';
+import '../../data/user_profile_data_source.dart';
 import '../../../../shared/models/user_profile.dart';
 
-final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return StubAuthRepository();
-});
+part 'auth_providers.g.dart';
 
-final authStateProvider = StreamProvider<String?>((ref) {
-  return ref.watch(authRepositoryProvider).authStateChanges;
-});
-
-// Auth notifier state
-class AuthState {
-  final bool isLoading;
-  final String? error;
-  final UserProfile? user;
-
-  const AuthState({this.isLoading = false, this.error, this.user});
-
-  AuthState copyWith({bool? isLoading, String? error, UserProfile? user}) {
-    return AuthState(
-      isLoading: isLoading ?? this.isLoading,
-      error: error,
-      user: user ?? this.user,
-    );
-  }
+@riverpod
+FirebaseAuthRepositoryImpl authRepository(Ref ref) {
+  return FirebaseAuthRepositoryImpl(
+    FirebaseAuthDataSource(
+      firebase_auth.FirebaseAuth.instance,
+      GoogleSignIn(),
+    ),
+    UserProfileDataSource(FirebaseFirestore.instance),
+  );
 }
 
-class AuthNotifier extends StateNotifier<AuthState> {
-  final AuthRepository _repo;
+@riverpod
+Stream<UserProfile?> authState(Ref ref) {
+  return ref.watch(authRepositoryProvider).authStateChanges;
+}
 
-  AuthNotifier(this._repo) : super(const AuthState());
-
-  Future<bool> signIn(String email, String password) async {
-    state = state.copyWith(isLoading: true, error: null);
-    final (user, failure) = await _repo.signInWithEmail(email, password);
-    if (failure != null) {
-      state = state.copyWith(isLoading: false, error: failure.message);
-      return false;
-    }
-    state = state.copyWith(isLoading: false, user: user);
-    return true;
+@riverpod
+class AuthNotifier extends _$AuthNotifier {
+  @override
+  Future<UserProfile?> build() async {
+    return ref.watch(authStateProvider).valueOrNull;
   }
 
-  Future<bool> signUp(String email, String password) async {
-    state = state.copyWith(isLoading: true, error: null);
-    final (user, failure) = await _repo.signUpWithEmail(email, password);
+  Future<void> signInWithEmail(String email, String password) async {
+    state = const AsyncLoading();
+    final (user, failure) = await ref
+        .read(authRepositoryProvider)
+        .signInWithEmail(email, password);
     if (failure != null) {
-      state = state.copyWith(isLoading: false, error: failure.message);
-      return false;
+      state = AsyncError(failure.message, StackTrace.current);
+      return;
     }
-    state = state.copyWith(isLoading: false, user: user);
-    return true;
+    state = AsyncData(user);
+  }
+
+  Future<void> signUpWithEmail(
+    String email,
+    String password, {
+    String? displayName,
+  }) async {
+    state = const AsyncLoading();
+    final (user, failure) = await ref
+        .read(authRepositoryProvider)
+        .signUpWithEmail(email, password, displayName: displayName);
+    if (failure != null) {
+      state = AsyncError(failure.message, StackTrace.current);
+      return;
+    }
+    state = AsyncData(user);
+  }
+
+  Future<void> signInWithGoogle() async {
+    state = const AsyncLoading();
+    final (user, failure) =
+        await ref.read(authRepositoryProvider).signInWithGoogle();
+    if (failure != null) {
+      state = AsyncError(failure.message, StackTrace.current);
+      return;
+    }
+    state = AsyncData(user);
   }
 
   Future<void> signOut() async {
-    await _repo.signOut();
-    state = const AuthState();
+    await ref.read(authRepositoryProvider).signOut();
+    state = const AsyncData(null);
+  }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    await ref.read(authRepositoryProvider).sendPasswordResetEmail(email);
+  }
+
+  Future<void> updateProfile(UserProfile profile) async {
+    state = const AsyncLoading();
+    final failure =
+        await ref.read(authRepositoryProvider).updateUserProfile(profile);
+    if (failure != null) {
+      state = AsyncError(failure.message, StackTrace.current);
+      return;
+    }
+    state = AsyncData(profile);
   }
 }
-
-final authNotifierProvider =
-    StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-      return AuthNotifier(ref.watch(authRepositoryProvider));
-    });

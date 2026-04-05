@@ -4,9 +4,9 @@ import '../../../core/errors/failures.dart';
 
 abstract class WorkoutRepository {
   Future<(List<WorkoutTemplate>, Failure?)> getTemplates(String userId);
-  Future<Failure?> saveTemplate(WorkoutTemplate template);
-  Future<Failure?> deleteTemplate(String templateId);
+  Future<Failure?> saveTemplate(String userId, WorkoutTemplate template);
+  Future<Failure?> deleteTemplate(String userId, String templateId);
   Future<Failure?> saveWorkoutSession(WorkoutSession session);
   Future<(List<WorkoutSession>, Failure?)> getWorkoutHistory(String userId, {int limit = 20});
-  Future<(WorkoutSession?, Failure?)> getSession(String sessionId);
+  Future<(WorkoutSession?, Failure?)> getSession(String userId, String sessionId);
 }

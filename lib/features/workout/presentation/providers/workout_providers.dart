@@ -1,7 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/workout_repository_impl.dart';
+import '../../data/workout_firestore_data_source.dart';
 import '../../domain/workout_repository.dart';
 import '../../../../shared/models/workout_template.dart';
 import '../../../../shared/models/workout_session.dart';
@@ -9,7 +11,9 @@ import '../../../../shared/models/workout_session.dart';
 const _uuid = Uuid();
 
 final workoutRepositoryProvider = Provider<WorkoutRepository>((ref) {
-  return StubWorkoutRepository();
+  return WorkoutRepositoryImpl(
+    WorkoutFirestoreDataSource(FirebaseFirestore.instance),
+  );
 });
 
 // Templates
@@ -34,6 +38,22 @@ class ActiveWorkoutState {
     this.elapsedSeconds = 0,
   });
 
+  /// Returns true if the user should be warned before finishing/discarding:
+  /// less than 5 minutes elapsed OR no exercises added yet.
+  bool get shouldWarnOnFinish =>
+      elapsedSeconds < 300 ||
+      session == null ||
+      session!.exercises.isEmpty;
+
+  /// Total completed sets across all exercises in the current session.
+  int get completedSetsCount {
+    if (session == null) return 0;
+    return session!.exercises.fold(
+      0,
+      (total, ex) => total + ex.sets.where((s) => s.isCompleted).length,
+    );
+  }
+
   ActiveWorkoutState copyWith({
     WorkoutSession? session,
     bool? isRunning,
@@ -52,7 +72,7 @@ class ActiveWorkoutState {
 class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState> {
   ActiveWorkoutNotifier() : super(const ActiveWorkoutState());
 
-  void startWorkout({WorkoutTemplate? template}) {
+  void startWorkout({required String userId, WorkoutTemplate? template}) {
     final now = DateTime.now();
     final exercises =
         template?.exercises.map((te) {
@@ -78,6 +98,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState> {
     state = ActiveWorkoutState(
       session: WorkoutSession(
         id: _uuid.v4(),
+        userId: userId,
         templateId: template?.id,
         templateName: template?.name,
         startTime: now,

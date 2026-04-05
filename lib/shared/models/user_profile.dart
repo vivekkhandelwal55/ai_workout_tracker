@@ -1,41 +1,29 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'user_profile.freezed.dart';
+part 'user_profile.g.dart';
+
 enum FitnessGoal { hypertrophy, fatLoss, endurance, strength, generalFitness }
 
-class UserProfile {
-  final String id;
-  final String name;
-  final int age;
-  final double weight; // kg
-  final double height; // cm
-  final FitnessGoal primaryGoal;
-  final String? avatarUrl;
+enum ExperienceLevel { beginner, intermediate, advanced }
 
-  const UserProfile({
-    required this.id,
-    required this.name,
-    required this.age,
-    required this.weight,
-    required this.height,
-    required this.primaryGoal,
-    this.avatarUrl,
-  });
-
-  UserProfile copyWith({
-    String? id,
-    String? name,
-    int? age,
-    double? weight,
-    double? height,
-    FitnessGoal? primaryGoal,
+@freezed
+sealed class UserProfile with _$UserProfile {
+  const factory UserProfile({
+    required String id,
+    required String email,
+    String? displayName,
     String? avatarUrl,
-  }) {
-    return UserProfile(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      age: age ?? this.age,
-      weight: weight ?? this.weight,
-      height: height ?? this.height,
-      primaryGoal: primaryGoal ?? this.primaryGoal,
-      avatarUrl: avatarUrl ?? this.avatarUrl,
-    );
-  }
+    int? age,
+    double? weightKg,
+    double? heightCm,
+    @Default(FitnessGoal.generalFitness) FitnessGoal primaryGoal,
+    @Default(ExperienceLevel.beginner) ExperienceLevel experienceLevel,
+    @Default(false) bool onboardingComplete,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) = _UserProfile;
+
+  factory UserProfile.fromJson(Map<String, dynamic> json) =>
+      _$UserProfileFromJson(json);
 }
