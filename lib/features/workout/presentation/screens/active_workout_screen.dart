@@ -11,8 +11,12 @@ import 'package:ai_workout_tracker_app/app/theme/app_theme.dart';
 import 'package:ai_workout_tracker_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:ai_workout_tracker_app/features/exercises/presentation/providers/exercise_providers.dart';
 import 'package:ai_workout_tracker_app/features/workout/presentation/providers/workout_providers.dart';
+import 'package:ai_workout_tracker_app/features/stats/presentation/providers/stats_providers.dart';
 import 'package:ai_workout_tracker_app/shared/models/exercise.dart';
 import 'package:ai_workout_tracker_app/shared/models/workout_session.dart';
+
+// NOTE: The workout ticker is now driven by [workoutTickerProvider] at the
+// provider level so the clock keeps running even when navigating away.
 
 class ActiveWorkoutScreen extends ConsumerStatefulWidget {
   const ActiveWorkoutScreen({super.key});
@@ -23,8 +27,6 @@ class ActiveWorkoutScreen extends ConsumerStatefulWidget {
 }
 
 class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
-  Timer? _timer;
-
   @override
   void initState() {
     super.initState();
@@ -38,15 +40,6 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
         ref.read(activeWorkoutProvider.notifier).startWorkout(userId: userId);
       }
     });
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      ref.read(activeWorkoutProvider.notifier).tickTimer();
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
   }
 
   String _formatElapsed(int totalSeconds) {
@@ -123,14 +116,28 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
       final discard = await _showDiscardDialog();
       if (!mounted) return;
       if (!discard) return;
-      // User chose to discard — cancel and go home
-      _timer?.cancel();
+      // User chose to discard — reset and go home
       ref.read(activeWorkoutProvider.notifier).reset();
       context.go(AppRoutes.home);
       return;
     }
-    _timer?.cancel();
-    ref.read(activeWorkoutProvider.notifier).finishWorkout();
+    final session = ref.read(activeWorkoutProvider.notifier).finishWorkout();
+
+    if (session != null) {
+      final userId = ref.read(authNotifierProvider).valueOrNull?.id ?? 'stub-user-001';
+      final failure = await ref.read(workoutRepositoryProvider).saveWorkoutSession(session);
+      if (!mounted) return;
+      if (failure != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save workout: ${failure.message}')),
+        );
+        return;
+      }
+      ref.invalidate(weeklyStatsProvider(userId));
+      ref.invalidate(workoutHistoryProvider(userId));
+      ref.invalidate(lifetimeWorkoutStatsProvider(userId));
+    }
+
     if (mounted) context.go(AppRoutes.workoutSummary);
   }
 
@@ -141,7 +148,6 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
       final discard = await _showDiscardDialog();
       if (!mounted) return false;
       if (discard) {
-        _timer?.cancel();
         ref.read(activeWorkoutProvider.notifier).reset();
         return true;
       }
@@ -198,7 +204,6 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
       ),
     );
     if (leave == true && mounted) {
-      _timer?.cancel();
       ref.read(activeWorkoutProvider.notifier).reset();
       return true;
     }
@@ -222,179 +227,6 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     );
   }
 
-  void _showWeightPicker(
-    BuildContext context,
-    String exerciseId,
-    int setIndex,
-    WorkoutSet set,
-  ) {
-    final controller =
-        TextEditingController(text: set.weight?.toStringAsFixed(1) ?? '');
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.surfaceContainerLow,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 24,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'WEIGHT (KG)',
-                style: GoogleFonts.lexend(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 1.6,
-                  color: AppColors.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                ],
-                style: GoogleFonts.lexend(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.onSurface,
-                ),
-                decoration: InputDecoration(
-                  hintText: '0.0',
-                  hintStyle: GoogleFonts.lexend(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.surfaceContainerHighest,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final value = double.tryParse(controller.text);
-                    if (value != null) {
-                      ref
-                          .read(activeWorkoutProvider.notifier)
-                          .updateSet(exerciseId, setIndex,
-                              set.copyWith(weight: value));
-                    }
-                    Navigator.pop(ctx);
-                  },
-                  child: Text(
-                    'CONFIRM',
-                    style: GoogleFonts.lexend(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.4,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showRepsPicker(
-    BuildContext context,
-    String exerciseId,
-    int setIndex,
-    WorkoutSet set,
-  ) {
-    final controller =
-        TextEditingController(text: set.reps?.toString() ?? '');
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.surfaceContainerLow,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 24,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'REPS',
-                style: GoogleFonts.lexend(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 1.6,
-                  color: AppColors.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: GoogleFonts.lexend(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.onSurface,
-                ),
-                decoration: InputDecoration(
-                  hintText: '0',
-                  hintStyle: GoogleFonts.lexend(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.surfaceContainerHighest,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final value = int.tryParse(controller.text);
-                    if (value != null) {
-                      ref
-                          .read(activeWorkoutProvider.notifier)
-                          .updateSet(exerciseId, setIndex,
-                              set.copyWith(reps: value));
-                    }
-                    Navigator.pop(ctx);
-                  },
-                  child: Text(
-                    'CONFIRM',
-                    style: GoogleFonts.lexend(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.4,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(activeWorkoutProvider);
@@ -411,13 +243,14 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
       },
       child: Scaffold(
         backgroundColor: AppColors.surface,
+        resizeToAvoidBottomInset: true,
         body: SafeArea(
           child: Column(
             children: [
               // App Bar
               Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Row(
                   children: [
                     GestureDetector(
@@ -456,13 +289,13 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
               // Scrollable content
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: 24),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Session Timer
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Column(
                           children: [
                             Text(
@@ -486,8 +319,9 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
 
                       // Stats Row
                       Container(
+                        margin: const EdgeInsets.symmetric(vertical: 8),
                         color: AppColors.surfaceContainerLow,
-                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                         child: Row(
                           children: [
                             Expanded(
@@ -549,11 +383,13 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                           return _ExerciseCard(
                             exercise: exercise,
                             onWeightTap: (setIndex, set) =>
-                                _showWeightPicker(
-                                    context, exercise.exerciseId, setIndex, set),
+                                ref
+                                    .read(activeWorkoutProvider.notifier)
+                                    .updateSet(exercise.exerciseId, setIndex, set),
                             onRepsTap: (setIndex, set) =>
-                                _showRepsPicker(
-                                    context, exercise.exerciseId, setIndex, set),
+                                ref
+                                    .read(activeWorkoutProvider.notifier)
+                                    .updateSet(exercise.exerciseId, setIndex, set),
                             onToggleSet: (setIndex, set) {
                               ref
                                   .read(activeWorkoutProvider.notifier)
@@ -576,7 +412,7 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                         onTap: () => _showExercisePicker(context),
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          padding: const EdgeInsets.symmetric(vertical: 20),
                           color: Colors.transparent,
                           child: Column(
                             children: [
@@ -919,10 +755,10 @@ class _ExercisePickerState extends ConsumerState<_ExercisePicker> {
 }
 
 // ---------------------------------------------------------------------------
-// Exercise Card
+// Exercise Card (Inline Editable)
 // ---------------------------------------------------------------------------
 
-class _ExerciseCard extends ConsumerWidget {
+class _ExerciseCard extends ConsumerStatefulWidget {
   final SessionExercise exercise;
   final void Function(int setIndex, WorkoutSet set) onWeightTap;
   final void Function(int setIndex, WorkoutSet set) onRepsTap;
@@ -936,6 +772,99 @@ class _ExerciseCard extends ConsumerWidget {
     required this.onToggleSet,
     required this.onAddSet,
   });
+
+  @override
+  ConsumerState<_ExerciseCard> createState() => _ExerciseCardState();
+}
+
+class _ExerciseCardState extends ConsumerState<_ExerciseCard> {
+  // Inline editing state for weight/reps
+  int? _editingWeightSetIndex;
+  int? _editingRepsSetIndex;
+  late TextEditingController _weightController;
+  late TextEditingController _repsController;
+  late FocusNode _weightFocusNode;
+  late FocusNode _repsFocusNode;
+
+  static const _cardPadding = 16.0;
+  static const _sectionSpacing = 8.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _weightController = TextEditingController();
+    _repsController = TextEditingController();
+    _weightFocusNode = FocusNode();
+    _repsFocusNode = FocusNode();
+
+    _weightFocusNode.addListener(_onWeightFocusChange);
+    _repsFocusNode.addListener(_onRepsFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _weightController.dispose();
+    _repsController.dispose();
+    _weightFocusNode.removeListener(_onWeightFocusChange);
+    _repsFocusNode.removeListener(_onRepsFocusChange);
+    _weightFocusNode.dispose();
+    _repsFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _onWeightFocusChange() {
+    if (!_weightFocusNode.hasFocus && _editingWeightSetIndex != null) {
+      _saveWeightEdit();
+    }
+  }
+
+  void _onRepsFocusChange() {
+    if (!_repsFocusNode.hasFocus && _editingRepsSetIndex != null) {
+      _saveRepsEdit();
+    }
+  }
+
+  void _startWeightEdit(int setIndex, WorkoutSet set) {
+    setState(() {
+      _editingWeightSetIndex = setIndex;
+      _weightController.text = set.weight?.toStringAsFixed(1) ?? '';
+    });
+    _weightFocusNode.requestFocus();
+  }
+
+  void _startRepsEdit(int setIndex, WorkoutSet set) {
+    setState(() {
+      _editingRepsSetIndex = setIndex;
+      _repsController.text = set.reps?.toString() ?? '';
+    });
+    _repsFocusNode.requestFocus();
+  }
+
+  void _saveWeightEdit() {
+    if (_editingWeightSetIndex == null) return;
+    final value = double.tryParse(_weightController.text);
+    if (value != null) {
+      widget.onWeightTap(_editingWeightSetIndex!,
+          widget.exercise.sets[_editingWeightSetIndex!].copyWith(weight: value));
+    }
+    setState(() {
+      _editingWeightSetIndex = null;
+      _weightController.clear();
+    });
+  }
+
+  void _saveRepsEdit() {
+    if (_editingRepsSetIndex == null) return;
+    final value = int.tryParse(_repsController.text);
+    if (value != null) {
+      widget.onRepsTap(_editingRepsSetIndex!,
+          widget.exercise.sets[_editingRepsSetIndex!].copyWith(reps: value));
+    }
+    setState(() {
+      _editingRepsSetIndex = null;
+      _repsController.clear();
+    });
+  }
 
   Color _setNumberColor(SetType type) {
     switch (type) {
@@ -956,14 +885,122 @@ class _ExerciseCard extends ConsumerWidget {
     return '$type • $muscle';
   }
 
+  Widget _buildWeightCell(int setIndex, WorkoutSet set, bool isCompleted) {
+    if (_editingWeightSetIndex == setIndex) {
+      return SizedBox(
+        height: 36,
+        child: TextField(
+          controller: _weightController,
+          focusNode: _weightFocusNode,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          textAlign: TextAlign.center,
+          style: GoogleFonts.lexend(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.onSurface,
+          ),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+          ],
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            filled: true,
+            fillColor: AppColors.surfaceContainerHighest,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+          ),
+          onSubmitted: (_) => _saveWeightEdit(),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: isCompleted ? null : () => _startWeightEdit(setIndex, set),
+      child: Center(
+        child: Text(
+          set.weight != null ? set.weight!.toStringAsFixed(1) : '—',
+          style: GoogleFonts.lexend(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: isCompleted ? AppColors.onSurfaceVariant : AppColors.onSurface,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRepsCell(int setIndex, WorkoutSet set, bool isCompleted) {
+    if (_editingRepsSetIndex == setIndex) {
+      return SizedBox(
+        height: 36,
+        child: TextField(
+          controller: _repsController,
+          focusNode: _repsFocusNode,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.lexend(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.onSurface,
+          ),
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            filled: true,
+            fillColor: AppColors.surfaceContainerHighest,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+          ),
+          onSubmitted: (_) => _saveRepsEdit(),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: isCompleted ? null : () => _startRepsEdit(setIndex, set),
+      child: Center(
+        child: Text(
+          set.reps != null ? set.reps.toString() : '—',
+          style: GoogleFonts.lexend(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: isCompleted ? AppColors.onSurfaceVariant : AppColors.onSurface,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final metaAsync = ref.watch(exerciseMetadataProvider(exercise.exerciseId));
+  Widget build(BuildContext context) {
+    final metaAsync = ref.watch(exerciseMetadataProvider(widget.exercise.exerciseId));
     final meta = metaAsync.valueOrNull;
 
     // Find first uncompleted set index
     final firstUncompletedIndex =
-        exercise.sets.indexWhere((s) => !s.isCompleted);
+        widget.exercise.sets.indexWhere((s) => !s.isCompleted);
 
     return Container(
       color: AppColors.surfaceContainerLow,
@@ -973,8 +1010,10 @@ class _ExerciseCard extends ConsumerWidget {
         children: [
           // Exercise header
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            padding: const EdgeInsets.symmetric(
+              horizontal: _cardPadding,
+              vertical: _cardPadding,
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -983,7 +1022,7 @@ class _ExerciseCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        exercise.exerciseName.toUpperCase(),
+                        widget.exercise.exerciseName.toUpperCase(),
                         style: GoogleFonts.lexend(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
@@ -1009,8 +1048,10 @@ class _ExerciseCard extends ConsumerWidget {
 
           // Set table header
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: _cardPadding,
+              vertical: _sectionSpacing,
+            ),
             child: Row(
               children: [
                 SizedBox(
@@ -1028,7 +1069,7 @@ class _ExerciseCard extends ConsumerWidget {
                   ),
                 ),
                 SizedBox(
-                  width: 64,
+                  width: 72,
                   child: Text(
                     'REPS',
                     style: Theme.of(context).textTheme.labelSmall,
@@ -1048,7 +1089,7 @@ class _ExerciseCard extends ConsumerWidget {
           ),
 
           // Set rows
-          ...exercise.sets.asMap().entries.map((entry) {
+          ...widget.exercise.sets.asMap().entries.map((entry) {
             final setIndex = entry.key;
             final set = entry.value;
             final isActiveSet =
@@ -1076,7 +1117,7 @@ class _ExerciseCard extends ConsumerWidget {
                   SizedBox(
                     width: 36,
                     child: Padding(
-                      padding: const EdgeInsets.only(left: 16),
+                      padding: const EdgeInsets.only(left: _cardPadding),
                       child: Text(
                         set.setNumber.toString(),
                         style: GoogleFonts.lexend(
@@ -1090,52 +1131,22 @@ class _ExerciseCard extends ConsumerWidget {
                     ),
                   ),
 
-                  // Weight
+                  // Weight - inline editable
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () => onWeightTap(setIndex, set),
-                      child: Center(
-                        child: Text(
-                          set.weight != null
-                              ? set.weight!.toStringAsFixed(1)
-                              : '—',
-                          style: GoogleFonts.lexend(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: isCompleted
-                                ? AppColors.onSurfaceVariant
-                                : AppColors.onSurface,
-                          ),
-                        ),
-                      ),
-                    ),
+                    child: _buildWeightCell(setIndex, set, isCompleted),
                   ),
 
-                  // Reps
+                  // Reps - inline editable
                   SizedBox(
-                    width: 64,
-                    child: GestureDetector(
-                      onTap: () => onRepsTap(setIndex, set),
-                      child: Center(
-                        child: Text(
-                          set.reps != null ? set.reps.toString() : '—',
-                          style: GoogleFonts.lexend(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: isCompleted
-                                ? AppColors.onSurfaceVariant
-                                : AppColors.onSurface,
-                          ),
-                        ),
-                      ),
-                    ),
+                    width: 72,
+                    child: _buildRepsCell(setIndex, set, isCompleted),
                   ),
 
                   // Status
                   SizedBox(
                     width: 48,
                     child: GestureDetector(
-                      onTap: () => onToggleSet(setIndex, set),
+                      onTap: () => widget.onToggleSet(setIndex, set),
                       child: Center(
                         child: Container(
                           width: 24,
@@ -1168,9 +1179,9 @@ class _ExerciseCard extends ConsumerWidget {
           }),
 
           // Add Set button
-          const SizedBox(height: 8),
+          const SizedBox(height: _sectionSpacing),
           GestureDetector(
-            onTap: onAddSet,
+            onTap: widget.onAddSet,
             child: Container(
               width: double.infinity,
               height: 44,

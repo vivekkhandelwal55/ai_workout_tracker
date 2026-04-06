@@ -19,8 +19,9 @@ final workoutRepositoryProvider = Provider<WorkoutRepository>((ref) {
 // Templates
 final workoutTemplatesProvider =
     FutureProvider.family<List<WorkoutTemplate>, String>((ref, userId) async {
-      final (templates, _) =
-          await ref.watch(workoutRepositoryProvider).getTemplates(userId);
+      final (templates, _) = await ref
+          .watch(workoutRepositoryProvider)
+          .getTemplates(userId);
       return templates;
     });
 
@@ -41,9 +42,7 @@ class ActiveWorkoutState {
   /// Returns true if the user should be warned before finishing/discarding:
   /// less than 5 minutes elapsed OR no exercises added yet.
   bool get shouldWarnOnFinish =>
-      elapsedSeconds < 300 ||
-      session == null ||
-      session!.exercises.isEmpty;
+      elapsedSeconds < 30 || session == null || session!.exercises.isEmpty;
 
   /// Total completed sets across all exercises in the current session.
   int get completedSetsCount {
@@ -113,8 +112,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState> {
 
   void tickTimer() {
     if (state.isRunning && state.startTime != null) {
-      final elapsed =
-          DateTime.now().difference(state.startTime!).inSeconds;
+      final elapsed = DateTime.now().difference(state.startTime!).inSeconds;
       state = state.copyWith(elapsedSeconds: elapsed);
     }
   }
@@ -180,10 +178,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState> {
       endTime: DateTime.now(),
       isCompleted: true,
     );
-    state = ActiveWorkoutState(
-      session: finished,
-      isRunning: false,
-    );
+    state = ActiveWorkoutState(session: finished, isRunning: false);
     return finished;
   }
 
@@ -196,3 +191,18 @@ final activeWorkoutProvider =
     StateNotifierProvider<ActiveWorkoutNotifier, ActiveWorkoutState>((ref) {
       return ActiveWorkoutNotifier();
     });
+
+/// Persistent ticker that auto-starts/stops based on [activeWorkoutProvider].
+/// Runs at the Riverpod provider level so the timer keeps ticking even when
+/// the user navigates away from [ActiveWorkoutScreen].
+final workoutTickerProvider = StreamProvider<void>((ref) {
+  final workoutState = ref.watch(activeWorkoutProvider);
+
+  if (!workoutState.isRunning || workoutState.startTime == null) {
+    return const Stream.empty();
+  }
+
+  return Stream.periodic(const Duration(seconds: 1), (_) {
+    ref.read(activeWorkoutProvider.notifier).tickTimer();
+  });
+});

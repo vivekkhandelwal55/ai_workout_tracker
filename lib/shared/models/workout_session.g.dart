@@ -50,7 +50,7 @@ Map<String, dynamic> _$SessionExerciseToJson(_SessionExercise instance) =>
     <String, dynamic>{
       'exerciseId': instance.exerciseId,
       'exerciseName': instance.exerciseName,
-      'sets': instance.sets,
+      'sets': instance.sets.map((e) => e.toJson()).toList(),
     };
 
 _WorkoutSession _$WorkoutSessionFromJson(Map<String, dynamic> json) =>
@@ -80,6 +80,6 @@ Map<String, dynamic> _$WorkoutSessionToJson(_WorkoutSession instance) =>
       'templateName': instance.templateName,
       'startTime': instance.startTime.toIso8601String(),
       'endTime': instance.endTime?.toIso8601String(),
-      'exercises': instance.exercises,
+      'exercises': instance.exercises.map((e) => e.toJson()).toList(),
       'isCompleted': instance.isCompleted,
     };

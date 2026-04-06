@@ -31,16 +31,24 @@ class StatsScreen extends ConsumerWidget {
     final strengthProgressAsync = ref.watch(strengthProgressProvider(userId));
     final historyAsync = ref.watch(workoutHistoryProvider(userId));
 
-    // Auto-select the top PR exercise for the chart once records load
-    personalRecordsAsync.whenData((records) {
-      if (records.isNotEmpty) {
-        final current = ref.read(selectedExerciseForGraphProvider);
-        if (current.isEmpty) {
-          ref.read(selectedExerciseForGraphProvider.notifier).state =
-              records.first.exerciseId;
-        }
-      }
-    });
+    // Auto-select the top PR exercise for the chart once records load.
+    // Must use ref.listen (not whenData during build) so state mutation
+    // happens after the build phase — Riverpod 2.x prohibits modifying
+    // provider state synchronously inside build().
+    ref.listen<AsyncValue<List<PersonalRecord>>>(
+      personalRecordsProvider(userId),
+      (_, next) {
+        next.whenData((records) {
+          if (records.isNotEmpty) {
+            final current = ref.read(selectedExerciseForGraphProvider);
+            if (current.isEmpty) {
+              ref.read(selectedExerciseForGraphProvider.notifier).state =
+                  records.first.exerciseId;
+            }
+          }
+        });
+      },
+    );
 
     final selectedExerciseId = ref.watch(selectedExerciseForGraphProvider);
     final selectedExerciseName = personalRecordsAsync.valueOrNull

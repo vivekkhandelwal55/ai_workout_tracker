@@ -44,7 +44,7 @@ Map<String, dynamic> _$WorkoutRoutineToJson(_WorkoutRoutine instance) =>
     <String, dynamic>{
       'id': instance.id,
       'userId': instance.userId,
-      'days': instance.days,
+      'days': instance.days.map((e) => e.toJson()).toList(),
       'startDate': instance.startDate.toIso8601String(),
       'createdAt': instance.createdAt?.toIso8601String(),
       'updatedAt': instance.updatedAt?.toIso8601String(),

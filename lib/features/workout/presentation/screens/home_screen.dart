@@ -11,6 +11,93 @@ import 'package:ai_workout_tracker_app/features/stats/presentation/providers/sta
 import 'package:ai_workout_tracker_app/shared/models/workout_template.dart';
 import 'package:go_router/go_router.dart';
 
+/// Shows the start workout confirmation dialog and returns true if confirmed.
+Future<bool> _showStartWorkoutDialog(
+  BuildContext context,
+  WorkoutTemplate template,
+) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder:
+        (dialogContext) => AlertDialog(
+          backgroundColor: AppColors.surfaceContainerHigh,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          title: Text(
+            'START ${template.name.toUpperCase()}?',
+            style: GoogleFonts.lexend(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+              color: Colors.white,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ready to begin your workout?',
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                color: AppColors.surfaceContainerHighest,
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.fitness_center,
+                      color: AppColors.onSurfaceVariant,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${template.exercises.length} exercises',
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                'CANCEL',
+                style: GoogleFonts.lexend(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                'START WORKOUT',
+                style: GoogleFonts.lexend(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+  );
+  return result ?? false;
+}
+
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -44,7 +131,8 @@ class HomeScreen extends ConsumerWidget {
   Widget _buildStartWorkoutFAB(BuildContext context, WidgetRef ref) {
     return FloatingActionButton.extended(
       onPressed: () {
-        final userId = ref.read(authNotifierProvider).valueOrNull?.id ?? 'stub-user-001';
+        final userId =
+            ref.read(authNotifierProvider).valueOrNull?.id ?? 'stub-user-001';
         ref.read(activeWorkoutProvider.notifier).startWorkout(userId: userId);
         context.push(AppRoutes.activeWorkout);
       },
@@ -78,28 +166,19 @@ class HomeScreen extends ConsumerWidget {
               color: Colors.white,
             ),
           ),
-          Icon(
-            Icons.menu,
-            color: AppColors.onSurfaceVariant,
-          ),
+          Icon(Icons.menu, color: AppColors.onSurfaceVariant),
         ],
       ),
     );
   }
 
-  Widget _buildStatsSection(
-    BuildContext context,
-    AsyncValue weeklyStatsAsync,
-  ) {
+  Widget _buildStatsSection(BuildContext context, AsyncValue weeklyStatsAsync) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'PERFORMANCE',
-            style: Theme.of(context).textTheme.labelMedium,
-          ),
+          Text('PERFORMANCE', style: Theme.of(context).textTheme.labelMedium),
           const SizedBox(height: 12),
           weeklyStatsAsync.when(
             loading: () => const _StatsPlaceholder(),
@@ -132,7 +211,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               const Spacer(),
               TextButton(
-                onPressed: () => context.go(AppRoutes.exercises),
+                onPressed: () => _showAllTemplates(context, ref, templatesAsync),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.primary,
                   padding: EdgeInsets.zero,
@@ -153,19 +232,154 @@ class HomeScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           templatesAsync.when(
-            loading: () => const SizedBox(
-              height: 120,
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              ),
-            ),
-            error: (err, st) => Text(
-              'Failed to load templates',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            loading:
+                () => const SizedBox(
+                  height: 120,
+                  child: Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+                ),
+            error:
+                (err, st) => Text(
+                  'Failed to load templates',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
             data: (templates) => _TemplatesGrid(templates: templates),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showAllTemplates(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue templatesAsync,
+  ) {
+    final templates =
+        (templatesAsync.valueOrNull as List<WorkoutTemplate>?) ?? [];
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceContainerLow,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.92,
+        builder: (ctx2, scrollController) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 36,
+                height: 4,
+                color: AppColors.surfaceContainerHighest,
+              ),
+            ),
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
+                  Text(
+                    'YOUR TEMPLATES',
+                    style: GoogleFonts.lexend(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.6,
+                      color: AppColors.onSurface,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      context.push(AppRoutes.createTemplate);
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      '+ NEW',
+                      style: GoogleFonts.lexend(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(height: 1, color: AppColors.outlineVariant),
+            if (templates.isEmpty)
+              Expanded(
+                child: Center(
+                  child: Text(
+                    'No templates yet — create one to get started',
+                    style: GoogleFonts.lexend(
+                      fontSize: 13,
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.separated(
+                  controller: scrollController,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: templates.length,
+                  separatorBuilder: (_, __) =>
+                      Container(height: 1, color: AppColors.outlineVariant),
+                  itemBuilder: (_, i) {
+                    final template = templates[i];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 8),
+                      title: Text(
+                        template.name.toUpperCase(),
+                        style: GoogleFonts.lexend(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.onSurface,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${template.exercises.length} EXERCISE${template.exercises.length == 1 ? '' : 'S'}',
+                        style: Theme.of(ctx2).textTheme.labelSmall,
+                      ),
+                      trailing: const Icon(
+                        Icons.play_arrow,
+                        color: AppColors.primary,
+                      ),
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        final userId =
+                            ref.read(authNotifierProvider).valueOrNull?.id ??
+                                'stub-user-001';
+                        ref
+                            .read(activeWorkoutProvider.notifier)
+                            .startWorkout(userId: userId, template: template);
+                        context.push(AppRoutes.activeWorkout);
+                      },
+                      onLongPress: () {
+                        Navigator.of(ctx).pop();
+                        context.push(AppRoutes.editTemplate, extra: template);
+                      },
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -190,9 +404,7 @@ class HomeScreen extends ConsumerWidget {
                 child: _buildTrendBox(context, '185 KG', 'BARBELL BACK SQUAT'),
               ),
               const SizedBox(width: 12),
-              Expanded(
-                child: _buildTrendBox(context, '115 LB', 'BENCH PRESS'),
-              ),
+              Expanded(child: _buildTrendBox(context, '115 LB', 'BENCH PRESS')),
             ],
           ),
         ],
@@ -216,10 +428,7 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );
@@ -268,9 +477,10 @@ class _StatsData extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final workouts = stats.workoutsThisWeek.toString().padLeft(2, '0');
-    final volume = stats.totalVolumeKg >= 1000
-        ? '${(stats.totalVolumeKg / 1000).toStringAsFixed(1)}k'
-        : stats.totalVolumeKg.toStringAsFixed(0);
+    final volume =
+        stats.totalVolumeKg >= 1000
+            ? '${(stats.totalVolumeKg / 1000).toStringAsFixed(1)}k'
+            : stats.totalVolumeKg.toStringAsFixed(0);
     final streak = stats.currentStreak.toString();
     final prs = stats.totalPRsThisWeek.toString().padLeft(2, '0');
 
@@ -351,10 +561,7 @@ class _StatItem extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall,
-          ),
+          Text(label, style: Theme.of(context).textTheme.labelSmall),
           const SizedBox(height: 4),
           Text(
             value,
@@ -406,12 +613,19 @@ class _TemplateCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
-      onTap: () {
-        ref.read(activeWorkoutProvider.notifier).startWorkout(
-              userId: ref.read(authNotifierProvider).valueOrNull?.id ?? 'stub-user-001',
-              template: template,
-            );
-        context.push(AppRoutes.activeWorkout);
+      onTap: () async {
+        final confirmed = await _showStartWorkoutDialog(context, template);
+        if (confirmed && context.mounted) {
+          ref
+              .read(activeWorkoutProvider.notifier)
+              .startWorkout(
+                userId:
+                    ref.read(authNotifierProvider).valueOrNull?.id ??
+                    'stub-user-001',
+                template: template,
+              );
+          context.push(AppRoutes.activeWorkout);
+        }
       },
       onLongPress: () {
         _showTemplateOptions(context, ref, template);
@@ -457,43 +671,64 @@ class _TemplateCard extends ConsumerWidget {
     );
   }
 
-  void _showTemplateOptions(BuildContext context, WidgetRef ref, WorkoutTemplate template) {
+  void _showTemplateOptions(
+    BuildContext context,
+    WidgetRef ref,
+    WorkoutTemplate template,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surfaceContainerLow,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit, color: AppColors.onSurface),
-              title: Text(
-                'EDIT TEMPLATE',
-                style: GoogleFonts.lexend(color: AppColors.onSurface),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                context.push(AppRoutes.editTemplate, extra: template);
-              },
+      builder:
+          (ctx) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.edit, color: AppColors.onSurface),
+                  title: Text(
+                    'EDIT TEMPLATE',
+                    style: GoogleFonts.lexend(color: AppColors.onSurface),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.push(AppRoutes.editTemplate, extra: template);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.play_arrow,
+                    color: AppColors.primary,
+                  ),
+                  title: Text(
+                    'START WORKOUT',
+                    style: GoogleFonts.lexend(color: AppColors.primary),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final confirmed = await _showStartWorkoutDialog(
+                      context,
+                      template,
+                    );
+                    if (confirmed && context.mounted) {
+                      ref
+                          .read(activeWorkoutProvider.notifier)
+                          .startWorkout(
+                            userId:
+                                ref
+                                    .read(authNotifierProvider)
+                                    .valueOrNull
+                                    ?.id ??
+                                'stub-user-001',
+                            template: template,
+                          );
+                      context.push(AppRoutes.activeWorkout);
+                    }
+                  },
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.play_arrow, color: AppColors.primary),
-              title: Text(
-                'START WORKOUT',
-                style: GoogleFonts.lexend(color: AppColors.primary),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                ref.read(activeWorkoutProvider.notifier).startWorkout(
-                  userId: ref.read(authNotifierProvider).valueOrNull?.id ?? 'stub-user-001',
-                  template: template,
-                );
-                context.push(AppRoutes.activeWorkout);
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 }
@@ -521,10 +756,7 @@ class _NewTemplateCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              'NEW TEMPLATE',
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
+            Text('NEW TEMPLATE', style: Theme.of(context).textTheme.labelSmall),
           ],
         ),
       ),
@@ -557,20 +789,15 @@ class _RecommendedCard extends ConsumerWidget {
 
           // State 2 — rest day (no template linked)
           if (todayDay == null || todayDay.routineDay.templateId == null) {
-            return _RecommendedRestDay(
-              routine: routine,
-              todayDay: todayDay,
-            );
+            return _RecommendedRestDay(routine: routine, todayDay: todayDay);
           }
 
           // State 3 — workout day
           final templateId = todayDay.routineDay.templateId!;
           final templatesAsync = ref.watch(workoutTemplatesProvider(userId));
-          final WorkoutTemplate? template =
-              templatesAsync.valueOrNull?.cast<WorkoutTemplate?>().firstWhere(
-                    (t) => t?.id == templateId,
-                    orElse: () => null,
-                  );
+          final WorkoutTemplate? template = templatesAsync.valueOrNull
+              ?.cast<WorkoutTemplate?>()
+              .firstWhere((t) => t?.id == templateId, orElse: () => null);
 
           return _RecommendedWorkoutDay(
             routine: routine,
@@ -745,7 +972,7 @@ class _RecommendedWorkoutDay extends ConsumerWidget {
     final dayNumber = todayDay.dayNumber as int;
     final dayName =
         (todayDay.routineDay.templateName as String?)?.toUpperCase() ??
-            todayDay.routineDay.name.toString().toUpperCase();
+        todayDay.routineDay.name.toString().toUpperCase();
 
     // Exercise preview from template
     List<String> exerciseNames = [];
@@ -809,15 +1036,21 @@ class _RecommendedWorkoutDay extends ConsumerWidget {
             alignment: Alignment.centerRight,
             child: _CardButton(
               label: 'START \u2192',
-              onPressed: template == null
-                  ? null
-                  : () {
-                      ref.read(activeWorkoutProvider.notifier).startWorkout(
-                            userId: userId,
-                            template: template,
-                          );
-                      context.push(AppRoutes.activeWorkout);
-                    },
+              onPressed:
+                  template == null
+                      ? null
+                      : () async {
+                        final confirmed = await _showStartWorkoutDialog(
+                          context,
+                          template!,
+                        );
+                        if (confirmed && context.mounted) {
+                          ref
+                              .read(activeWorkoutProvider.notifier)
+                              .startWorkout(userId: userId, template: template);
+                          context.push(AppRoutes.activeWorkout);
+                        }
+                      },
             ),
           ),
         ],
@@ -850,9 +1083,7 @@ class _CardButton extends StatelessWidget {
           foregroundColor:
               isSecondary ? AppColors.onSurface : AppColors.onPrimary,
           elevation: 0,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero,
-          ),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
           padding: const EdgeInsets.symmetric(horizontal: 20),
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -870,4 +1101,3 @@ class _CardButton extends StatelessWidget {
     );
   }
 }
-

@@ -54,7 +54,7 @@ Map<String, dynamic> _$WorkoutTemplateToJson(_WorkoutTemplate instance) =>
       'id': instance.id,
       'name': instance.name,
       'description': instance.description,
-      'exercises': instance.exercises,
+      'exercises': instance.exercises.map((e) => e.toJson()).toList(),
       'estimatedMinutes': instance.estimatedMinutes,
       'lastUsed': instance.lastUsed?.toIso8601String(),
     };

@@ -48,6 +48,11 @@ class WorkoutFirestoreDataSource {
     if (session.endTime != null) {
       data['endTime'] = Timestamp.fromDate(session.endTime!);
     }
+    data['exercises'] = session.exercises.map((ex) {
+      final exMap = ex.toJson();
+      exMap['sets'] = ex.sets.map((s) => s.toJson()).toList();
+      return exMap;
+    }).toList();
     await _sessionsCollection(userId).doc(session.id).set(data);
   }
 

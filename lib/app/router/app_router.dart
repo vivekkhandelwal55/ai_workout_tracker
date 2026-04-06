@@ -18,6 +18,7 @@ import 'package:ai_workout_tracker_app/features/profile/presentation/screens/pro
 import 'package:ai_workout_tracker_app/features/routine/presentation/screens/routine_screen.dart';
 import 'package:ai_workout_tracker_app/shared/models/user_profile.dart';
 import 'package:ai_workout_tracker_app/shared/models/workout_template.dart';
+import 'package:ai_workout_tracker_app/shared/widgets/active_workout_indicator.dart';
 
 part 'app_router.g.dart';
 
@@ -165,9 +166,19 @@ class _MainShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: child,
-      bottomNavigationBar: const _BottomNav(),
+    return Stack(
+      children: [
+        Scaffold(
+          body: child,
+          bottomNavigationBar: const _BottomNav(),
+        ),
+        const Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: ActiveWorkoutIndicator(),
+        ),
+      ],
     );
   }
 }
