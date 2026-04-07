@@ -3,6 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import 'package:ai_workout_tracker_app/app/router/app_routes.dart';
+export 'package:ai_workout_tracker_app/app/router/app_routes.dart';
+
 import 'package:ai_workout_tracker_app/features/auth/presentation/screens/onboarding_screen.dart';
 import 'package:ai_workout_tracker_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:ai_workout_tracker_app/features/auth/presentation/screens/register_screen.dart';
@@ -16,28 +19,16 @@ import 'package:ai_workout_tracker_app/features/exercises/presentation/screens/e
 import 'package:ai_workout_tracker_app/features/workout/presentation/screens/create_template_screen.dart';
 import 'package:ai_workout_tracker_app/features/profile/presentation/screens/profile_screen.dart';
 import 'package:ai_workout_tracker_app/features/routine/presentation/screens/routine_screen.dart';
+import 'package:ai_workout_tracker_app/features/exercises/presentation/screens/exercise_detail_screen.dart';
+import 'package:ai_workout_tracker_app/features/stats/presentation/screens/workout_history_detail_screen.dart';
+import 'package:ai_workout_tracker_app/shared/models/exercise.dart';
+import 'package:ai_workout_tracker_app/shared/models/workout_session.dart';
 import 'package:ai_workout_tracker_app/shared/models/user_profile.dart';
 import 'package:ai_workout_tracker_app/shared/models/workout_template.dart';
 import 'package:ai_workout_tracker_app/shared/widgets/active_workout_indicator.dart';
 
 part 'app_router.g.dart';
 
-// Route name constants
-abstract class AppRoutes {
-  static const String login = '/login';
-  static const String onboarding = '/onboarding';
-  static const String register = '/register';
-  static const String userDetails = '/user-details';
-  static const String home = '/home';
-  static const String stats = '/stats';
-  static const String exercises = '/exercises';
-  static const String profile = '/profile';
-  static const String activeWorkout = '/workout';
-  static const String workoutSummary = '/workout-summary';
-  static const String createTemplate = '/create-template';
-  static const String editTemplate = '/edit-template';
-  static const String routine = '/routine';
-}
 
 @riverpod
 GoRouter appRouter(Ref ref) {
@@ -106,6 +97,20 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: AppRoutes.routine,
         builder: (context, state) => const RoutineScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.exerciseDetail,
+        builder: (context, state) {
+          final exercise = state.extra as Exercise;
+          return ExerciseDetailScreen(exercise: exercise);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.workoutHistoryDetail,
+        builder: (context, state) {
+          final session = state.extra as WorkoutSession;
+          return WorkoutHistoryDetailScreen(session: session);
+        },
       ),
     ],
   );

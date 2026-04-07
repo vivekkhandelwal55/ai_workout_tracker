@@ -8,29 +8,15 @@ class ExerciseFirestoreDataSource {
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<Map<String, dynamic>> get _exercisesCollection =>
-      _firestore.collection(FirestoreCollections.exercises);
-
   CollectionReference<Map<String, dynamic>> _userExercisesCollection(String userId) =>
       _firestore
           .collection(FirestoreCollections.users)
           .doc(userId)
           .collection(FirestoreCollections.customExercises);
 
-  Future<List<Exercise>> getExercises({
-    MuscleGroup? filterByMuscle,
-    String? searchQuery,
-    String? userId,
-  }) async {
-    Query<Map<String, dynamic>> query = _exercisesCollection;
-
-    if (filterByMuscle != null) {
-      query = query.where('primaryMuscle', isEqualTo: filterByMuscle.name);
-    }
-
-    final snapshot = await query.get();
-
-    var exercises = snapshot.docs.map((doc) {
+  Future<List<Exercise>> getCustomExercises(String userId) async {
+    final snapshot = await _userExercisesCollection(userId).get();
+    return snapshot.docs.map((doc) {
       return Exercise(
         id: doc.id,
         name: doc.data()['name'] as String? ?? '',
@@ -41,36 +27,9 @@ class ExerciseFirestoreDataSource {
         equipmentName: doc.data()['equipmentName'] as String?,
         gifUrl: doc.data()['gifUrl'] as String?,
         tips: (doc.data()['tips'] as List<dynamic>?)?.cast<String>() ?? [],
-        isCustom: doc.data()['isCustom'] as bool? ?? false,
+        isCustom: doc.data()['isCustom'] as bool? ?? true,
       );
     }).toList();
-
-    // Fetch user's custom exercises if userId is provided
-    if (userId != null) {
-      final customSnapshot = await _userExercisesCollection(userId).get();
-      final customExercises = customSnapshot.docs.map((doc) {
-        return Exercise(
-          id: doc.id,
-          name: doc.data()['name'] as String? ?? '',
-          primaryMuscle: _parseMuscleGroup(doc.data()['primaryMuscle']),
-          secondaryMuscleDescription: doc.data()['secondaryMuscleDescription'] as String?,
-          type: _parseExerciseType(doc.data()['type']),
-          trackingUnit: _parseTrackingUnit(doc.data()['trackingUnit']),
-          equipmentName: doc.data()['equipmentName'] as String?,
-          gifUrl: doc.data()['gifUrl'] as String?,
-          tips: (doc.data()['tips'] as List<dynamic>?)?.cast<String>() ?? [],
-          isCustom: doc.data()['isCustom'] as bool? ?? true,
-        );
-      }).toList();
-      exercises.addAll(customExercises);
-    }
-
-    if (searchQuery != null && searchQuery.isNotEmpty) {
-      final q = searchQuery.toLowerCase();
-      exercises = exercises.where((e) => e.name.toLowerCase().contains(q)).toList();
-    }
-
-    return exercises;
   }
 
   Future<void> createCustomExercise(String userId, Exercise exercise) async {

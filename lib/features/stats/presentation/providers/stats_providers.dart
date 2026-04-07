@@ -8,6 +8,11 @@ import '../../../../shared/models/personal_record.dart';
 import '../../../../shared/models/stats_data.dart';
 import '../../../../shared/models/workout_session.dart';
 
+enum StrengthRange { oneMonth, threeMonths, sixMonths, all }
+
+final selectedStrengthRangeProvider =
+    StateProvider<StrengthRange>((ref) => StrengthRange.threeMonths);
+
 final statsRepositoryProvider = Provider<StatsRepository>((ref) {
   return FirebaseStatsRepository(
     WorkoutFirestoreDataSource(FirebaseFirestore.instance),
@@ -36,10 +41,24 @@ final strengthProgressProvider =
     FutureProvider.family<List<StrengthDataPoint>, String>((ref, userId) async {
       final exerciseId = ref.watch(selectedExerciseForGraphProvider);
       if (exerciseId.isEmpty) return [];
+
+      final range = ref.watch(selectedStrengthRangeProvider);
       final (data, _) = await ref
           .watch(statsRepositoryProvider)
           .getStrengthProgress(userId, exerciseId);
-      return data;
+
+      if (data.isEmpty) return data;
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final cutoff = switch (range) {
+        StrengthRange.oneMonth => today.subtract(const Duration(days: 30)),
+        StrengthRange.threeMonths => today.subtract(const Duration(days: 90)),
+        StrengthRange.sixMonths => today.subtract(const Duration(days: 180)),
+        StrengthRange.all => DateTime(2000),
+      };
+
+      return data.where((p) => !p.date.isBefore(cutoff)).toList();
     });
 
 final workoutHistoryProvider =

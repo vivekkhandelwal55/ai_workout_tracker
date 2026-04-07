@@ -15,14 +15,18 @@ class WeeklyStats {
 }
 
 class StrengthDataPoint {
-  final DateTime date;
-  final double weight;
-  final int reps;
+  final DateTime date;   // day-precision (time zeroed to midnight)
+  final double weight;   // weight of the best set (highest e1RM set)
+  final int reps;        // reps of that best set
+  final double e1rm;     // Epley: weight * (1 + reps / 30)
+  final bool isPR;       // true if ANY completed set that day had isPR == true
 
   const StrengthDataPoint({
     required this.date,
     required this.weight,
     required this.reps,
+    required this.e1rm,
+    required this.isPR,
   });
 }
 

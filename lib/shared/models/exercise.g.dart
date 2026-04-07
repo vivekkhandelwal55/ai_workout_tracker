@@ -20,6 +20,29 @@ _Exercise _$ExerciseFromJson(Map<String, dynamic> json) => _Exercise(
       const [],
   isCustom: json['isCustom'] as bool? ?? false,
   userId: json['userId'] as String?,
+  bodyParts:
+      (json['bodyParts'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      const [],
+  targetMuscles:
+      (json['targetMuscles'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const [],
+  secondaryMuscles:
+      (json['secondaryMuscles'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const [],
+  mechanic: json['mechanic'] as String?,
+  level: json['level'] as String?,
+  force: json['force'] as String?,
+  instructions:
+      (json['instructions'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const [],
+  thumbnailUrl: json['thumbnailUrl'] as String?,
+  category: json['category'] as String?,
 );
 
 Map<String, dynamic> _$ExerciseToJson(_Exercise instance) => <String, dynamic>{
@@ -34,6 +57,15 @@ Map<String, dynamic> _$ExerciseToJson(_Exercise instance) => <String, dynamic>{
   'tips': instance.tips,
   'isCustom': instance.isCustom,
   'userId': instance.userId,
+  'bodyParts': instance.bodyParts,
+  'targetMuscles': instance.targetMuscles,
+  'secondaryMuscles': instance.secondaryMuscles,
+  'mechanic': instance.mechanic,
+  'level': instance.level,
+  'force': instance.force,
+  'instructions': instance.instructions,
+  'thumbnailUrl': instance.thumbnailUrl,
+  'category': instance.category,
 };
 
 const _$MuscleGroupEnumMap = {

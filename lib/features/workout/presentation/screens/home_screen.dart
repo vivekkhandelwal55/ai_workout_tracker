@@ -111,19 +111,21 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.surface,
       floatingActionButton: _buildStartWorkoutFAB(context, ref),
-      body: CustomScrollView(
-        slivers: [
-          SliverList(
-            delegate: SliverChildListDelegate([
-              _buildAppBar(context),
-              _buildStatsSection(context, weeklyStatsAsync),
-              const _RecommendedCard(),
-              _buildTemplatesSection(context, ref, templatesAsync),
-              _buildStrengthTrendsSection(context),
-              const SizedBox(height: 32),
-            ]),
-          ),
-        ],
+      body: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            SliverList(
+              delegate: SliverChildListDelegate([
+                _buildAppBar(context),
+                _buildStatsSection(context, weeklyStatsAsync),
+                const _RecommendedCard(),
+                _buildTemplatesSection(context, ref, templatesAsync),
+                _buildStrengthTrendsSection(context),
+                const SizedBox(height: 32),
+              ]),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -155,7 +157,7 @@ class HomeScreen extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Text(
             'TRAIN',
@@ -166,7 +168,6 @@ class HomeScreen extends ConsumerWidget {
               color: Colors.white,
             ),
           ),
-          Icon(Icons.menu, color: AppColors.onSurfaceVariant),
         ],
       ),
     );
@@ -211,7 +212,8 @@ class HomeScreen extends ConsumerWidget {
               ),
               const Spacer(),
               TextButton(
-                onPressed: () => _showAllTemplates(context, ref, templatesAsync),
+                onPressed:
+                    () => _showAllTemplates(context, ref, templatesAsync),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.primary,
                   padding: EdgeInsets.zero,
@@ -230,7 +232,7 @@ class HomeScreen extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           templatesAsync.when(
             loading:
                 () => const SizedBox(
@@ -263,124 +265,142 @@ class HomeScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceContainerLow,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.92,
-        builder: (ctx2, scrollController) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 36,
-                height: 4,
-                color: AppColors.surfaceContainerHighest,
-              ),
-            ),
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Row(
-                children: [
-                  Text(
-                    'YOUR TEMPLATES',
-                    style: GoogleFonts.lexend(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.6,
-                      color: AppColors.onSurface,
-                    ),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(ctx).pop();
-                      context.push(AppRoutes.createTemplate);
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      '+ NEW',
-                      style: GoogleFonts.lexend(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                        letterSpacing: 1.2,
+      builder:
+          (ctx) => DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.6,
+            minChildSize: 0.4,
+            maxChildSize: 0.92,
+            builder:
+                (ctx2, scrollController) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 12, bottom: 8),
+                        width: 36,
+                        height: 4,
+                        color: AppColors.surfaceContainerHighest,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            Container(height: 1, color: AppColors.outlineVariant),
-            if (templates.isEmpty)
-              Expanded(
-                child: Center(
-                  child: Text(
-                    'No templates yet — create one to get started',
-                    style: GoogleFonts.lexend(
-                      fontSize: 13,
-                      color: AppColors.onSurfaceVariant,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            'YOUR TEMPLATES',
+                            style: GoogleFonts.lexend(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.6,
+                              color: AppColors.onSurface,
+                            ),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              context.push(AppRoutes.createTemplate);
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(
+                              '+ NEW',
+                              style: GoogleFonts.lexend(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView.separated(
-                  controller: scrollController,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: templates.length,
-                  separatorBuilder: (_, __) =>
-                      Container(height: 1, color: AppColors.outlineVariant),
-                  itemBuilder: (_, i) {
-                    final template = templates[i];
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 8),
-                      title: Text(
-                        template.name.toUpperCase(),
-                        style: GoogleFonts.lexend(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.onSurface,
+                    Container(height: 1, color: AppColors.outlineVariant),
+                    if (templates.isEmpty)
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            'No templates yet — create one to get started',
+                            style: GoogleFonts.lexend(
+                              fontSize: 13,
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: ListView.separated(
+                          controller: scrollController,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: templates.length,
+                          separatorBuilder:
+                              (_, __) => Container(
+                                height: 1,
+                                color: AppColors.outlineVariant,
+                              ),
+                          itemBuilder: (_, i) {
+                            final template = templates[i];
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 8,
+                              ),
+                              title: Text(
+                                template.name.toUpperCase(),
+                                style: GoogleFonts.lexend(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.onSurface,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${template.exercises.length} EXERCISE${template.exercises.length == 1 ? '' : 'S'}',
+                                style: Theme.of(ctx2).textTheme.labelSmall,
+                              ),
+                              trailing: const Icon(
+                                Icons.play_arrow,
+                                color: AppColors.primary,
+                              ),
+                              onTap: () {
+                                Navigator.of(ctx).pop();
+                                final userId =
+                                    ref
+                                        .read(authNotifierProvider)
+                                        .valueOrNull
+                                        ?.id ??
+                                    'stub-user-001';
+                                ref
+                                    .read(activeWorkoutProvider.notifier)
+                                    .startWorkout(
+                                      userId: userId,
+                                      template: template,
+                                    );
+                                context.push(AppRoutes.activeWorkout);
+                              },
+                              onLongPress: () {
+                                Navigator.of(ctx).pop();
+                                context.push(
+                                  AppRoutes.editTemplate,
+                                  extra: template,
+                                );
+                              },
+                            );
+                          },
                         ),
                       ),
-                      subtitle: Text(
-                        '${template.exercises.length} EXERCISE${template.exercises.length == 1 ? '' : 'S'}',
-                        style: Theme.of(ctx2).textTheme.labelSmall,
-                      ),
-                      trailing: const Icon(
-                        Icons.play_arrow,
-                        color: AppColors.primary,
-                      ),
-                      onTap: () {
-                        Navigator.of(ctx).pop();
-                        final userId =
-                            ref.read(authNotifierProvider).valueOrNull?.id ??
-                                'stub-user-001';
-                        ref
-                            .read(activeWorkoutProvider.notifier)
-                            .startWorkout(userId: userId, template: template);
-                        context.push(AppRoutes.activeWorkout);
-                      },
-                      onLongPress: () {
-                        Navigator.of(ctx).pop();
-                        context.push(AppRoutes.editTemplate, extra: template);
-                      },
-                    );
-                  },
+                  ],
                 ),
-              ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
@@ -663,6 +683,18 @@ class _TemplateCard extends ConsumerWidget {
                   color: AppColors.onSurfaceVariant,
                   fontSize: 18,
                 ),
+              ),
+            ),
+            Positioned(
+              right: 0,
+              top: 0,
+              child: IconButton(
+                icon: const Icon(Icons.more_horiz),
+                color: AppColors.onSurfaceVariant,
+                iconSize: 20,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                padding: EdgeInsets.zero,
+                onPressed: () => _showTemplateOptions(context, ref, template),
               ),
             ),
           ],

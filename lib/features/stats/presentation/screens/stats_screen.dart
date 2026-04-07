@@ -1,9 +1,14 @@
+import 'dart:math';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import 'package:go_router/go_router.dart';
+
+import 'package:ai_workout_tracker_app/app/router/app_routes.dart';
 import 'package:ai_workout_tracker_app/app/theme/app_theme.dart';
 import 'package:ai_workout_tracker_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:ai_workout_tracker_app/features/stats/presentation/providers/stats_providers.dart';
@@ -173,13 +178,15 @@ class StatsScreen extends ConsumerWidget {
                           color: AppColors.outlineVariant,
                         ),
                         const SizedBox(height: 16),
+                        const StrengthRangeSelector(),
+                        const SizedBox(height: 12),
                         strengthProgressAsync.when(
-                          loading: () => const SizedBox(height: 200),
-                          error: (err, st) => const SizedBox(height: 200),
+                          loading: () => const SizedBox(height: 220),
+                          error: (err, st) => const SizedBox(height: 220),
                           data: (dataPoints) {
                             if (dataPoints.isEmpty) {
                               return SizedBox(
-                                height: 200,
+                                height: 220,
                                 child: Center(
                                   child: Text(
                                     'No data yet — complete a workout to see your progress',
@@ -194,7 +201,13 @@ class StatsScreen extends ConsumerWidget {
                                 ),
                               );
                             }
-                            return _StrengthChart(dataPoints: dataPoints);
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _StrengthChart(dataPoints: dataPoints),
+                                _ProgressDelta(dataPoints: dataPoints),
+                              ],
+                            );
                           },
                         ),
                       ],
@@ -694,100 +707,274 @@ class _VolumeStatTile extends StatelessWidget {
   }
 }
 
+// ── y-axis interval helper ───────────────────────────────────────────────────
+double _niceInterval(double range) {
+  if (range <= 20) return 5;
+  if (range <= 50) return 10;
+  if (range <= 100) return 20;
+  return 25;
+}
+
+// ── Range selector ───────────────────────────────────────────────────────────
+class StrengthRangeSelector extends ConsumerWidget {
+  const StrengthRangeSelector();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(selectedStrengthRangeProvider);
+
+    const labels = {
+      StrengthRange.oneMonth: '1M',
+      StrengthRange.threeMonths: '3M',
+      StrengthRange.sixMonths: '6M',
+      StrengthRange.all: 'ALL',
+    };
+
+    return Row(
+      children: StrengthRange.values.map((range) {
+        final isSelected = range == selected;
+        return GestureDetector(
+          onTap: () =>
+              ref.read(selectedStrengthRangeProvider.notifier).state = range,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            margin: const EdgeInsets.only(right: 8),
+            color: isSelected
+                ? AppColors.primary.withValues(alpha: 0.15)
+                : Colors.transparent,
+            child: Text(
+              labels[range]!,
+              style: GoogleFonts.lexend(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+                color: isSelected
+                    ? AppColors.primary
+                    : AppColors.onSurfaceVariant,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ── Strength chart ────────────────────────────────────────────────────────────
 class _StrengthChart extends StatelessWidget {
   final List<StrengthDataPoint> dataPoints;
 
   const _StrengthChart({required this.dataPoints});
 
-  static const List<String> _monthLabels = [
-    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final spots = dataPoints.asMap().entries.map((e) {
-      return FlSpot(e.key.toDouble(), e.value.weight);
+      return FlSpot(e.key.toDouble(), e.value.e1rm);
     }).toList();
 
-    final currentMonthIndex = DateTime.now().month - 1;
+    final e1rmValues = dataPoints.map((p) => p.e1rm).toList();
+    final yMin = (e1rmValues.reduce(min) * 0.9).floorToDouble();
+    final yMax = (e1rmValues.reduce(max) * 1.1).ceilToDouble();
+    final yInterval = _niceInterval(yMax - yMin);
 
     return SizedBox(
-      height: 200,
+      height: 220,
       child: LineChart(
         LineChartData(
+          minY: yMin,
+          maxY: yMax,
           backgroundColor: Colors.transparent,
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: 25,
+            horizontalInterval: yInterval,
             getDrawingHorizontalLine: (value) => FlLine(
               color: AppColors.surfaceContainerHighest,
               strokeWidth: 1,
             ),
           ),
           titlesData: FlTitlesData(
-            bottomTitles: AxisTitles(
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            leftTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            rightTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 32,
+                reservedSize: 44,
+                interval: yInterval,
                 getTitlesWidget: (value, meta) {
-                  final idx = value.toInt();
-                  if (idx < 0 || idx >= dataPoints.length) {
+                  if (value == meta.min || value == meta.max) {
                     return const SizedBox.shrink();
                   }
-                  final monthIdx = dataPoints[idx].date.month - 1;
-                  final isCurrentMonth = monthIdx == currentMonthIndex;
                   return Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(left: 6),
                     child: Text(
-                      _monthLabels[monthIdx % 12],
+                      value.toStringAsFixed(0),
                       style: GoogleFonts.lexend(
                         fontSize: 9,
                         fontWeight: FontWeight.w500,
-                        letterSpacing: 1.2,
-                        color: isCurrentMonth
-                            ? AppColors.onSurface
-                            : AppColors.onSurfaceVariant,
+                        letterSpacing: 1.0,
+                        color: AppColors.onSurfaceVariant,
                       ),
                     ),
                   );
                 },
               ),
             ),
-            leftTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 28,
+                getTitlesWidget: (value, meta) {
+                  final idx = value.toInt();
+                  if (idx < 0 || idx >= dataPoints.length) {
+                    return const SizedBox.shrink();
+                  }
+                  // Show every 2nd point when ≤10 pts, every 3rd otherwise;
+                  // always show the last point (most recent session).
+                  final step = dataPoints.length <= 10 ? 2 : 3;
+                  if (idx % step != 0 && idx != dataPoints.length - 1) {
+                    return const SizedBox.shrink();
+                  }
+                  final label = DateFormat('MMM d')
+                      .format(dataPoints[idx].date)
+                      .toUpperCase();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      label,
+                      style: GoogleFonts.lexend(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.8,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
           borderData: FlBorderData(show: false),
           lineBarsData: [
             LineChartBarData(
               spots: spots,
-              isCurved: false,
+              isCurved: true,
+              curveSmoothness: 0.3,
               color: AppColors.primary,
               barWidth: 2,
               dotData: FlDotData(
                 show: true,
                 getDotPainter: (spot, percent, barData, index) {
-                  final isLast = index == spots.length - 1;
+                  final isPR = dataPoints[index].isPR;
                   return FlDotCirclePainter(
-                    radius: isLast ? 6 : 0,
-                    color: isLast ? AppColors.primary : Colors.transparent,
-                    strokeColor: Colors.transparent,
-                    strokeWidth: 0,
+                    radius: isPR ? 6 : 3,
+                    color: AppColors.primary,
+                    strokeColor: isPR ? Colors.white : Colors.transparent,
+                    strokeWidth: isPR ? 1.5 : 0,
                   );
                 },
               ),
-              belowBarData: BarAreaData(show: false),
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.25),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
             ),
           ],
+          lineTouchData: LineTouchData(
+            handleBuiltInTouches: true,
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (_) => AppColors.surfaceContainerHigh,
+              tooltipRoundedRadius: 0,
+              getTooltipItems: (touchedSpots) {
+                return touchedSpots.map((spot) {
+                  final idx = spot.spotIndex;
+                  final pt = dataPoints[idx];
+                  final dateStr =
+                      DateFormat('MMM d').format(pt.date).toUpperCase();
+                  final setStr =
+                      '${pt.weight.toStringAsFixed(0)} KG × ${pt.reps}';
+                  final e1rmStr = 'E1RM  ${pt.e1rm.toStringAsFixed(1)} KG';
+                  return LineTooltipItem(
+                    '$dateStr\n$setStr\n$e1rmStr',
+                    GoogleFonts.lexend(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.onSurface,
+                      height: 1.6,
+                    ),
+                    children: pt.isPR
+                        ? [
+                            TextSpan(
+                              text: '\nPR',
+                              style: GoogleFonts.lexend(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ]
+                        : [],
+                  );
+                }).toList();
+              },
+            ),
+          ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Progress delta ────────────────────────────────────────────────────────────
+class _ProgressDelta extends StatelessWidget {
+  final List<StrengthDataPoint> dataPoints;
+
+  const _ProgressDelta({required this.dataPoints});
+
+  @override
+  Widget build(BuildContext context) {
+    if (dataPoints.length < 2) return const SizedBox.shrink();
+
+    final delta = dataPoints.last.e1rm - dataPoints.first.e1rm;
+    final sign = delta >= 0 ? '+' : '';
+    final color = delta >= 0 ? AppColors.primary : AppColors.error;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        children: [
+          Text(
+            'E1RM  ${dataPoints.last.e1rm.toStringAsFixed(1)} KG',
+            style: GoogleFonts.lexend(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.onSurfaceVariant,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '($sign${delta.toStringAsFixed(1)} KG)',
+            style: GoogleFonts.lexend(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: color,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -903,51 +1090,54 @@ class _WorkoutHistoryRow extends StatelessWidget {
     final duration = session.durationMinutes;
     final volume = session.totalVolumeKg;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return InkWell(
+      onTap: () => context.push(AppRoutes.workoutHistoryDetail, extra: session),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    session.templateName?.toUpperCase() ?? 'WORKOUT',
+                    style: GoogleFonts.lexend(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    dateStr,
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  session.templateName?.toUpperCase() ?? 'WORKOUT',
+                  volume >= 1000
+                      ? '${(volume / 1000).toStringAsFixed(1)}K KG'
+                      : '${volume.toStringAsFixed(0)} KG',
                   style: GoogleFonts.lexend(
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.onSurface,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
-                  dateStr,
+                  '$duration MIN',
                   style: Theme.of(context).textTheme.labelSmall,
                 ),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                volume >= 1000
-                    ? '${(volume / 1000).toStringAsFixed(1)}K KG'
-                    : '${volume.toStringAsFixed(0)} KG',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.onSurface,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '$duration MIN',
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

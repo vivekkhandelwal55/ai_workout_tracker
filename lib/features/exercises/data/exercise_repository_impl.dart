@@ -2,11 +2,13 @@ import '../domain/exercise_repository.dart';
 import '../../../shared/models/exercise.dart';
 import '../../../core/errors/failures.dart';
 import 'exercise_firestore_data_source.dart';
+import 'exercise_local_data_source.dart';
 
 class ExerciseRepositoryImpl implements ExerciseRepository {
-  ExerciseRepositoryImpl(this._dataSource);
+  ExerciseRepositoryImpl(this._localDataSource, this._firestoreDataSource);
 
-  final ExerciseFirestoreDataSource _dataSource;
+  final ExerciseLocalDataSource _localDataSource;
+  final ExerciseFirestoreDataSource _firestoreDataSource;
 
   @override
   Future<(List<Exercise>, Failure?)> getExercises({
@@ -15,12 +17,28 @@ class ExerciseRepositoryImpl implements ExerciseRepository {
     String? userId,
   }) async {
     try {
-      final exercises = await _dataSource.getExercises(
+      final localExercises = await _localDataSource.getExercises(
         filterByMuscle: filterByMuscle,
         searchQuery: searchQuery,
-        userId: userId,
       );
-      return (exercises, null);
+
+      var customExercises = <Exercise>[];
+      if (userId != null) {
+        customExercises = await _firestoreDataSource.getCustomExercises(userId);
+        if (searchQuery != null && searchQuery.isNotEmpty) {
+          final q = searchQuery.toLowerCase();
+          customExercises = customExercises
+              .where((e) => e.name.toLowerCase().contains(q))
+              .toList();
+        }
+        if (filterByMuscle != null) {
+          customExercises = customExercises
+              .where((e) => e.primaryMuscle == filterByMuscle)
+              .toList();
+        }
+      }
+
+      return ([...localExercises, ...customExercises], null);
     } catch (e) {
       return (<Exercise>[], UnknownFailure(e.toString()));
     }
@@ -32,7 +50,7 @@ class ExerciseRepositoryImpl implements ExerciseRepository {
       return const ValidationFailure('Custom exercises require a userId');
     }
     try {
-      await _dataSource.createCustomExercise(exercise.userId!, exercise);
+      await _firestoreDataSource.createCustomExercise(exercise.userId!, exercise);
       return null;
     } catch (e) {
       return UnknownFailure(e.toString());

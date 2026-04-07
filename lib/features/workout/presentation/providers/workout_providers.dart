@@ -150,6 +150,16 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState> {
     );
   }
 
+  void removeExercise(String exerciseId) {
+    if (state.session == null) return;
+    final updatedExercises = state.session!.exercises
+        .where((ex) => ex.exerciseId != exerciseId)
+        .toList();
+    state = state.copyWith(
+      session: state.session!.copyWith(exercises: updatedExercises),
+    );
+  }
+
   void addExercise(String exerciseId, String exerciseName) {
     if (state.session == null) return;
     final newExercise = SessionExercise(
@@ -180,6 +190,21 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState> {
     );
     state = ActiveWorkoutState(session: finished, isRunning: false);
     return finished;
+  }
+
+  /// Reorder exercises in the current session.
+  /// Call with the [oldIndex] and [newIndex] produced by [ReorderableListView].
+  /// Flutter's ReorderableListView passes newIndex *after* removal, so this
+  /// method adjusts the index before inserting.
+  void reorderExercises(int oldIndex, int newIndex) {
+    if (state.session == null) return;
+    final exercises = List<SessionExercise>.from(state.session!.exercises);
+    if (newIndex > oldIndex) newIndex -= 1;
+    final item = exercises.removeAt(oldIndex);
+    exercises.insert(newIndex, item);
+    state = state.copyWith(
+      session: state.session!.copyWith(exercises: exercises),
+    );
   }
 
   void reset() {

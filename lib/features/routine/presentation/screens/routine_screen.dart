@@ -9,7 +9,6 @@ import 'package:ai_workout_tracker_app/features/routine/presentation/providers/r
 import 'package:ai_workout_tracker_app/features/workout/presentation/providers/workout_providers.dart';
 import 'package:ai_workout_tracker_app/shared/models/workout_routine.dart';
 
-
 const _uuid = Uuid();
 
 class RoutineScreen extends ConsumerStatefulWidget {
@@ -67,10 +66,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
   }
 
   void _addDay() {
-    final newDay = RoutineDay(
-      id: _uuid.v4(),
-      name: '',
-    );
+    final newDay = RoutineDay(id: _uuid.v4(), name: '');
     setState(() {
       _editDays.add(newDay);
       _nameControllers.add(TextEditingController());
@@ -112,14 +108,15 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
       initialDate: _startDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: Theme.of(ctx).colorScheme.copyWith(
-                primary: AppColors.primary,
-              ),
-        ),
-        child: child!,
-      ),
+      builder:
+          (ctx, child) => Theme(
+            data: Theme.of(ctx).copyWith(
+              colorScheme: Theme.of(
+                ctx,
+              ).colorScheme.copyWith(primary: AppColors.primary),
+            ),
+            child: child!,
+          ),
     );
     if (picked != null) {
       setState(() {
@@ -154,8 +151,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
       return;
     }
 
-    final userId =
-        ref.read(authNotifierProvider).valueOrNull?.id ?? '';
+    final userId = ref.read(authNotifierProvider).valueOrNull?.id ?? '';
 
     final routine = WorkoutRoutine(
       id: 'active',
@@ -175,50 +171,53 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
   Future<void> _deleteRoutine() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainerHigh,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-        title: Text(
-          'DELETE ROUTINE',
-          style: GoogleFonts.lexend(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.8,
-            color: AppColors.onSurface,
-          ),
-        ),
-        content: Text(
-          'This will permanently delete your training schedule.',
-          style: GoogleFonts.lexend(
-            fontSize: 13,
-            color: AppColors.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'CANCEL',
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: AppColors.surfaceContainerHigh,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.zero,
+            ),
+            title: Text(
+              'DELETE ROUTINE',
               style: GoogleFonts.lexend(
-                fontSize: 12,
-                letterSpacing: 1.4,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.8,
+                color: AppColors.onSurface,
+              ),
+            ),
+            content: Text(
+              'This will permanently delete your training schedule.',
+              style: GoogleFonts.lexend(
+                fontSize: 13,
                 color: AppColors.onSurfaceVariant,
               ),
             ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              'DELETE',
-              style: GoogleFonts.lexend(
-                fontSize: 12,
-                letterSpacing: 1.4,
-                color: AppColors.error,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(
+                  'CANCEL',
+                  style: GoogleFonts.lexend(
+                    fontSize: 12,
+                    letterSpacing: 1.4,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
               ),
-            ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(
+                  'DELETE',
+                  style: GoogleFonts.lexend(
+                    fontSize: 12,
+                    letterSpacing: 1.4,
+                    color: AppColors.error,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
 
     if (confirmed != true) return;
@@ -231,8 +230,18 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
 
   String _formatDate(DateTime date) {
     const months = [
-      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
@@ -243,9 +252,9 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
     ref.listen(routineNotifierProvider, (prev, next) {
       next.whenOrNull(
         error: (e, st) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.toString())),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.toString())));
         },
       );
     });
@@ -253,21 +262,23 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
     final routineAsync = ref.watch(currentRoutineProvider);
 
     return routineAsync.when(
-      loading: () => Scaffold(
-        backgroundColor: AppColors.surface,
-        body: const Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
-      ),
-      error: (e, st) => Scaffold(
-        backgroundColor: AppColors.surface,
-        body: Center(
-          child: Text(
-            'FAILED TO LOAD ROUTINE',
-            style: GoogleFonts.lexend(color: AppColors.onSurfaceVariant),
+      loading:
+          () => Scaffold(
+            backgroundColor: AppColors.surface,
+            body: const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
           ),
-        ),
-      ),
+      error:
+          (e, st) => Scaffold(
+            backgroundColor: AppColors.surface,
+            body: Center(
+              child: Text(
+                'FAILED TO LOAD ROUTINE',
+                style: GoogleFonts.lexend(color: AppColors.onSurfaceVariant),
+              ),
+            ),
+          ),
       data: (routine) {
         if (_isEditMode) {
           return _buildEditMode(routine);
@@ -405,6 +416,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
       padding: const EdgeInsets.fromLTRB(24, 16, 16, 0),
       child: Row(
         children: [
+          BackButton(),
           Expanded(
             child: Text(
               'MY ROUTINE',
@@ -451,7 +463,10 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
               child: Container(
                 margin: const EdgeInsets.fromLTRB(24, 16, 24, 0),
                 color: AppColors.surfaceContainerLow,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 child: Row(
                   children: [
                     const Icon(
@@ -492,43 +507,49 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
             const SizedBox(height: 16),
             // Reorderable day list
             Expanded(
-              child: _editDays.isEmpty
-                  ? Center(
-                      child: Text(
-                        'NO DAYS YET\nTAP ADD DAY BELOW',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.lexend(
-                          fontSize: 12,
-                          letterSpacing: 1.4,
-                          color: AppColors.onSurfaceVariant,
-                          height: 1.8,
+              child:
+                  _editDays.isEmpty
+                      ? Center(
+                        child: Text(
+                          'NO DAYS YET\nTAP ADD DAY BELOW',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            letterSpacing: 1.4,
+                            color: AppColors.onSurfaceVariant,
+                            height: 1.8,
+                          ),
                         ),
+                      )
+                      : ReorderableListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        onReorder: _reorderDays,
+                        proxyDecorator:
+                            (child, index, animation) =>
+                                _ProxyDecorator(child: child),
+                        itemCount: _editDays.length,
+                        itemBuilder: (context, index) {
+                          final day = _editDays[index];
+                          final userId =
+                              ref.read(authNotifierProvider).valueOrNull?.id ??
+                              '';
+                          return _DayEditTile(
+                            key: ValueKey(day.id),
+                            index: index,
+                            day: day,
+                            controller: _nameControllers[index],
+                            userId: userId,
+                            onDelete: () => _removeDay(index),
+                            onTemplateSelected: (templateId, templateName) {
+                              _updateDayTemplate(
+                                index,
+                                templateId,
+                                templateName,
+                              );
+                            },
+                          );
+                        },
                       ),
-                    )
-                  : ReorderableListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      onReorder: _reorderDays,
-                      proxyDecorator: (child, index, animation) =>
-                          _ProxyDecorator(child: child),
-                      itemCount: _editDays.length,
-                      itemBuilder: (context, index) {
-                        final day = _editDays[index];
-                        final userId =
-                            ref.read(authNotifierProvider).valueOrNull?.id ??
-                                '';
-                        return _DayEditTile(
-                          key: ValueKey(day.id),
-                          index: index,
-                          day: day,
-                          controller: _nameControllers[index],
-                          userId: userId,
-                          onDelete: () => _removeDay(index),
-                          onTemplateSelected: (templateId, templateName) {
-                            _updateDayTemplate(index, templateId, templateName);
-                          },
-                        );
-                      },
-                    ),
             ),
             // ADD DAY button
             Padding(
@@ -659,11 +680,12 @@ class _DayViewTile extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow,
-        border: isToday
-            ? const Border(
-                left: BorderSide(color: AppColors.primary, width: 3),
-              )
-            : null,
+        border:
+            isToday
+                ? const Border(
+                  left: BorderSide(color: AppColors.primary, width: 3),
+                )
+                : null,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
@@ -732,7 +754,8 @@ class _DayEditTile extends ConsumerWidget {
   final TextEditingController controller;
   final String userId;
   final VoidCallback onDelete;
-  final void Function(String? templateId, String? templateName) onTemplateSelected;
+  final void Function(String? templateId, String? templateName)
+  onTemplateSelected;
 
   const _DayEditTile({
     super.key,
@@ -841,11 +864,12 @@ class _DayEditTile extends ConsumerWidget {
       backgroundColor: AppColors.surfaceContainerLow,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      builder: (ctx) => _TemplatePicker(
-        userId: userId,
-        selectedTemplateId: day.templateId,
-        onSelected: onTemplateSelected,
-      ),
+      builder:
+          (ctx) => _TemplatePicker(
+            userId: userId,
+            selectedTemplateId: day.templateId,
+            onSelected: onTemplateSelected,
+          ),
     );
   }
 }
@@ -865,9 +889,10 @@ class _TemplateChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: isRest
-            ? AppColors.surfaceContainerHigh
-            : AppColors.primary.withValues(alpha: 0.12),
+        color:
+            isRest
+                ? AppColors.surfaceContainerHigh
+                : AppColors.primary.withValues(alpha: 0.12),
         border: Border.all(
           color: isRest ? AppColors.outlineVariant : AppColors.primary,
           width: 1,
@@ -881,9 +906,12 @@ class _TemplateChip extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.w600,
           letterSpacing: 1.2,
-          color: isRest
-              ? (isEditable ? AppColors.primary : AppColors.onSurfaceVariant)
-              : AppColors.primary,
+          color:
+              isRest
+                  ? (isEditable
+                      ? AppColors.primary
+                      : AppColors.onSurfaceVariant)
+                  : AppColors.primary,
         ),
       ),
     );
@@ -946,41 +974,49 @@ class _TemplatePicker extends ConsumerWidget {
             // Templates list
             Flexible(
               child: templatesAsync.when(
-                loading: () => const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: CircularProgressIndicator(color: AppColors.primary),
-                  ),
-                ),
-                error: (e, st) => Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'FAILED TO LOAD TEMPLATES',
-                    style: GoogleFonts.lexend(
-                      fontSize: 12,
-                      color: AppColors.onSurfaceVariant,
+                loading:
+                    () => const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                data: (templates) => ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: templates.length,
-                  separatorBuilder: (_, _i) =>
-                      Container(height: 1, color: AppColors.outlineVariant),
-                  itemBuilder: (context, index) {
-                    final t = templates[index];
-                    return _TemplatePickerRow(
-                      templateId: t.id,
-                      templateName: t.name,
-                      exerciseCount: t.exercises.length,
-                      isSelected: selectedTemplateId == t.id,
-                      onTap: () {
-                        onSelected(t.id, t.name);
-                        Navigator.pop(context);
+                error:
+                    (e, st) => Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'FAILED TO LOAD TEMPLATES',
+                        style: GoogleFonts.lexend(
+                          fontSize: 12,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                data:
+                    (templates) => ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: templates.length,
+                      separatorBuilder:
+                          (_, _i) => Container(
+                            height: 1,
+                            color: AppColors.outlineVariant,
+                          ),
+                      itemBuilder: (context, index) {
+                        final t = templates[index];
+                        return _TemplatePickerRow(
+                          templateId: t.id,
+                          templateName: t.name,
+                          exerciseCount: t.exercises.length,
+                          isSelected: selectedTemplateId == t.id,
+                          onTap: () {
+                            onSelected(t.id, t.name);
+                            Navigator.pop(context);
+                          },
+                        );
                       },
-                    );
-                  },
-                ),
+                    ),
               ),
             ),
           ],
@@ -1011,9 +1047,10 @@ class _TemplatePickerRow extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        color: isSelected
-            ? AppColors.primary.withValues(alpha: 0.08)
-            : Colors.transparent,
+        color:
+            isSelected
+                ? AppColors.primary.withValues(alpha: 0.08)
+                : Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Row(
           children: [
@@ -1038,9 +1075,10 @@ class _TemplatePickerRow extends StatelessWidget {
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.2,
-                      color: isRest
-                          ? AppColors.onSurfaceVariant
-                          : AppColors.onSurface,
+                      color:
+                          isRest
+                              ? AppColors.onSurfaceVariant
+                              : AppColors.onSurface,
                     ),
                   ),
                   if (!isRest) ...[

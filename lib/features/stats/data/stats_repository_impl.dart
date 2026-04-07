@@ -149,7 +149,8 @@ class FirebaseStatsRepository implements StatsRepository {
       final sessions = await _dataSource.getWorkoutHistory(userId, limit: 200);
       final completed = sessions.where((s) => s.isCompleted).toList();
 
-      final Map<String, StrengthDataPoint> byMonth = {};
+      // One point per calendar day — best set ranked by Epley e1RM.
+      final Map<String, StrengthDataPoint> byDay = {};
 
       for (final session in completed) {
         for (final exercise in session.exercises) {
@@ -158,24 +159,43 @@ class FirebaseStatsRepository implements StatsRepository {
             if (!set.isCompleted || set.weight == null || set.reps == null) {
               continue;
             }
-            final monthKey =
-                '${session.startTime.year}-${session.startTime.month.toString().padLeft(2, '0')}';
-            final existing = byMonth[monthKey];
-            if (existing == null || set.weight! > existing.weight) {
-              byMonth[monthKey] = StrengthDataPoint(
+            // Epley estimated 1-rep max
+            final e1rm = set.weight! * (1 + set.reps! / 30.0);
+            final dayKey =
+                '${session.startTime.year}-'
+                '${session.startTime.month.toString().padLeft(2, '0')}-'
+                '${session.startTime.day.toString().padLeft(2, '0')}';
+
+            final existing = byDay[dayKey];
+
+            if (existing == null || e1rm > existing.e1rm) {
+              // New best set for this day; preserve any PR flag seen earlier today
+              byDay[dayKey] = StrengthDataPoint(
                 date: DateTime(
                   session.startTime.year,
                   session.startTime.month,
+                  session.startTime.day,
                 ),
                 weight: set.weight!,
                 reps: set.reps!,
+                e1rm: e1rm,
+                isPR: (existing?.isPR ?? false) || set.isPR,
+              );
+            } else if (set.isPR && !existing.isPR) {
+              // Lower e1RM but flagged PR — preserve flag without replacing best-set data
+              byDay[dayKey] = StrengthDataPoint(
+                date: existing.date,
+                weight: existing.weight,
+                reps: existing.reps,
+                e1rm: existing.e1rm,
+                isPR: true,
               );
             }
           }
         }
       }
 
-      final points = byMonth.values.toList()
+      final points = byDay.values.toList()
         ..sort((a, b) => a.date.compareTo(b.date));
 
       return (points, null);

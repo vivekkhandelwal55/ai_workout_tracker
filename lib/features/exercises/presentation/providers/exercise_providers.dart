@@ -3,12 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/exercise_repository_impl.dart';
 import '../../data/exercise_firestore_data_source.dart';
+import '../../data/exercise_local_data_source.dart';
 import '../../domain/exercise_repository.dart';
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
 import '../../../../shared/models/exercise.dart';
 
+final exerciseLocalDataSourceProvider = Provider<ExerciseLocalDataSource>((ref) {
+  return ExerciseLocalDataSource();
+});
+
 final exerciseRepositoryProvider = Provider<ExerciseRepository>((ref) {
   return ExerciseRepositoryImpl(
+    ref.read(exerciseLocalDataSourceProvider),
     ExerciseFirestoreDataSource(FirebaseFirestore.instance),
   );
 });
@@ -40,6 +46,23 @@ final exerciseMetadataProvider =
       .getExercises();
   try {
     return exercises.firstWhere((e) => e.id == exerciseId);
+  } catch (_) {
+    return null;
+  }
+});
+
+/// Fallback metadata lookup by exercise name (case-insensitive).
+/// Used when the ID-based lookup in [exerciseMetadataProvider] returns null
+/// due to an ID format mismatch between templates and the exercise library.
+final exerciseMetadataByNameProvider =
+    FutureProvider.family<Exercise?, String>((ref, exerciseName) async {
+  final (exercises, _) = await ref
+      .read(exerciseRepositoryProvider)
+      .getExercises();
+  try {
+    return exercises.firstWhere(
+      (e) => e.name.toLowerCase() == exerciseName.toLowerCase(),
+    );
   } catch (_) {
     return null;
   }

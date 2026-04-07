@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
+
+import 'package:ai_workout_tracker_app/app/router/app_routes.dart';
 
 import 'package:ai_workout_tracker_app/app/theme/app_theme.dart';
 import 'package:ai_workout_tracker_app/features/auth/presentation/providers/auth_providers.dart';
@@ -327,22 +330,27 @@ class _ExerciseRow extends StatelessWidget {
         .join(' • ');
 
     return GestureDetector(
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(exercise.name),
-          ),
-        );
-      },
+      onTap: () => context.push(AppRoutes.exerciseDetail, extra: exercise),
       child: Container(
         color: isAlternate ? AppColors.surfaceContainerLow : Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              color: AppColors.surfaceContainerHighest,
+            ClipRect(
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: exercise.thumbnailUrl != null &&
+                        exercise.thumbnailUrl!.isNotEmpty
+                    ? Image.network(
+                        exercise.thumbnailUrl!,
+                        fit: BoxFit.cover,
+                        cacheWidth: 96,
+                        errorBuilder: (context, error, stack) =>
+                            const _ThumbnailPlaceholder(),
+                      )
+                    : const _ThumbnailPlaceholder(),
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -366,9 +374,28 @@ class _ExerciseRow extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.onSurfaceVariant,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (exercise.isCustom)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 3),
+                    color: AppColors.primary,
+                    child: Text(
+                      'CUSTOM',
+                      style: GoogleFonts.lexend(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: AppColors.onPrimary,
+                      ),
+                    ),
+                  ),
+                const Icon(Icons.chevron_right,
+                    color: AppColors.onSurfaceVariant),
+              ],
             ),
           ],
         ),
@@ -698,4 +725,22 @@ class _AddExerciseSheetState extends ConsumerState<_AddExerciseSheet> {
         TrackingUnit.distanceTime => 'DISTANCE + TIME  (e.g. 5 km / 30 min)',
         TrackingUnit.bodyweightReps => 'BODYWEIGHT REPS  (e.g. 15 reps)',
       };
+}
+
+class _ThumbnailPlaceholder extends StatelessWidget {
+  const _ThumbnailPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.surfaceContainerHighest,
+      child: const Center(
+        child: Icon(
+          Icons.fitness_center,
+          size: 20,
+          color: AppColors.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
 }

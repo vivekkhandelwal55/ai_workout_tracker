@@ -23,6 +23,16 @@ sealed class Exercise with _$Exercise {
     @Default([]) List<String> tips,
     @Default(false) bool isCustom,
     String? userId,
+    // Rich fields from the exercises_data.json asset
+    @Default([]) List<String> bodyParts,
+    @Default([]) List<String> targetMuscles,
+    @Default([]) List<String> secondaryMuscles,
+    String? mechanic,
+    String? level,
+    String? force,
+    @Default([]) List<String> instructions,
+    String? thumbnailUrl,
+    String? category,
   }) = _Exercise;
 
   factory Exercise.fromJson(Map<String, dynamic> json) =>
