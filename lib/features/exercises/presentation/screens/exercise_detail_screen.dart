@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:gif_view/gif_view.dart';
 
 import 'package:ai_workout_tracker_app/app/theme/app_theme.dart';
 import 'package:ai_workout_tracker_app/shared/models/exercise.dart';
+import 'package:ai_workout_tracker_app/shared/widgets/exercise_thumbnail_widget.dart';
 
 class ExerciseDetailScreen extends StatelessWidget {
   final Exercise exercise;
@@ -182,12 +184,14 @@ class _GifSection extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         if (gifUrl != null && gifUrl!.isNotEmpty)
-          Image.network(
-            gifUrl!,
+          GifView.asset(
+            'assets/$gifUrl',
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
-            errorBuilder: (context, error, stack) => const _GifPlaceholder(),
+            filterQuality: FilterQuality.high,
+            progressBuilder: (context) => const _GifPlaceholder(),
+            errorBuilder: (context, error, tryAgain) => const _GifPlaceholder(),
           )
         else
           const _GifPlaceholder(),
@@ -214,16 +218,7 @@ class _GifPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.surfaceContainerLow,
-      child: const Center(
-        child: Icon(
-          Icons.fitness_center,
-          size: 56,
-          color: AppColors.onSurfaceVariant,
-        ),
-      ),
-    );
+    return const ExerciseGifPlaceholder();
   }
 }
 

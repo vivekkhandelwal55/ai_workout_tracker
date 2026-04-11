@@ -14,6 +14,7 @@ import 'package:ai_workout_tracker_app/features/workout/presentation/providers/w
 import 'package:ai_workout_tracker_app/features/stats/presentation/providers/stats_providers.dart';
 import 'package:ai_workout_tracker_app/shared/models/exercise.dart';
 import 'package:ai_workout_tracker_app/shared/models/workout_session.dart';
+import 'package:ai_workout_tracker_app/shared/widgets/exercise_thumbnail_widget.dart';
 
 // NOTE: The workout ticker is now driven by [workoutTickerProvider] at the
 // provider level so the clock keeps running even when navigating away.
@@ -947,17 +948,8 @@ class _ExercisePickerState extends ConsumerState<_ExercisePicker> {
                           ),
                           child: Row(
                             children: [
-                              // Placeholder for gif
-                              Container(
-                                width: 44,
-                                height: 44,
-                                color: AppColors.surfaceContainerHighest,
-                                child: Icon(
-                                  Icons.fitness_center,
-                                  color: AppColors.onSurfaceVariant,
-                                  size: 20,
-                                ),
-                              ),
+                              // Thumbnail or GIF
+                              ExerciseThumbnail(exercise: ex, size: 44),
                               const SizedBox(width: 16),
                               Expanded(
                                 child: Column(

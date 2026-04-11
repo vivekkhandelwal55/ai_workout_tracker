@@ -10,6 +10,7 @@ import 'package:ai_workout_tracker_app/app/theme/app_theme.dart';
 import 'package:ai_workout_tracker_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:ai_workout_tracker_app/features/exercises/presentation/providers/exercise_providers.dart';
 import 'package:ai_workout_tracker_app/shared/models/exercise.dart';
+import 'package:ai_workout_tracker_app/shared/widgets/exercise_thumbnail_widget.dart';
 
 const _uuid = Uuid();
 
@@ -336,22 +337,7 @@ class _ExerciseRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            ClipRect(
-              child: SizedBox(
-                width: 48,
-                height: 48,
-                child: exercise.thumbnailUrl != null &&
-                        exercise.thumbnailUrl!.isNotEmpty
-                    ? Image.network(
-                        exercise.thumbnailUrl!,
-                        fit: BoxFit.cover,
-                        cacheWidth: 96,
-                        errorBuilder: (context, error, stack) =>
-                            const _ThumbnailPlaceholder(),
-                      )
-                    : const _ThumbnailPlaceholder(),
-              ),
-            ),
+            ExerciseThumbnail(exercise: exercise, size: 48),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -727,20 +713,3 @@ class _AddExerciseSheetState extends ConsumerState<_AddExerciseSheet> {
       };
 }
 
-class _ThumbnailPlaceholder extends StatelessWidget {
-  const _ThumbnailPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.surfaceContainerHighest,
-      child: const Center(
-        child: Icon(
-          Icons.fitness_center,
-          size: 20,
-          color: AppColors.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-}
