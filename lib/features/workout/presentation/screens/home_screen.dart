@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import 'package:ai_workout_tracker_app/app/theme/app_theme.dart';
 import 'package:ai_workout_tracker_app/app/router/app_router.dart';
@@ -8,6 +9,7 @@ import 'package:ai_workout_tracker_app/features/auth/presentation/providers/auth
 import 'package:ai_workout_tracker_app/features/routine/presentation/providers/routine_providers.dart';
 import 'package:ai_workout_tracker_app/features/workout/presentation/providers/workout_providers.dart';
 import 'package:ai_workout_tracker_app/features/stats/presentation/providers/stats_providers.dart';
+import 'package:ai_workout_tracker_app/shared/models/personal_record.dart';
 import 'package:ai_workout_tracker_app/shared/models/workout_template.dart';
 import 'package:go_router/go_router.dart';
 
@@ -107,6 +109,7 @@ class HomeScreen extends ConsumerWidget {
         ref.watch(authNotifierProvider).valueOrNull?.id ?? 'stub-user-001';
     final weeklyStatsAsync = ref.watch(weeklyStatsProvider(userId));
     final templatesAsync = ref.watch(workoutTemplatesProvider(userId));
+    final personalRecordsAsync = ref.watch(personalRecordsProvider(userId));
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -117,10 +120,10 @@ class HomeScreen extends ConsumerWidget {
             SliverList(
               delegate: SliverChildListDelegate([
                 _buildAppBar(context),
-                _buildStatsSection(context, weeklyStatsAsync),
+                _buildStatsSection(context, ref, userId, weeklyStatsAsync),
                 const _RecommendedCard(),
                 _buildTemplatesSection(context, ref, templatesAsync),
-                _buildStrengthTrendsSection(context),
+                _buildStrengthTrendsSection(context, personalRecordsAsync),
                 const SizedBox(height: 32),
               ]),
             ),
@@ -131,7 +134,7 @@ class HomeScreen extends ConsumerWidget {
   }
 
   Widget _buildStartWorkoutFAB(BuildContext context, WidgetRef ref) {
-    return FloatingActionButton.extended(
+    return FloatingActionButton.small(
       onPressed: () {
         final userId =
             ref.read(authNotifierProvider).valueOrNull?.id ?? 'stub-user-001';
@@ -141,23 +144,23 @@ class HomeScreen extends ConsumerWidget {
       backgroundColor: AppColors.primary,
       foregroundColor: AppColors.onPrimary,
       elevation: 4,
-      icon: const Icon(Icons.play_arrow, size: 28),
-      label: Text(
-        'QUICK START',
-        style: GoogleFonts.lexend(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.2,
-        ),
-      ),
+      child: const Icon(Icons.play_arrow, size: 28),
+      // label: Text(
+      //   'QUICK START',
+      //   style: GoogleFonts.lexend(
+      //     fontSize: 13,
+      //     fontWeight: FontWeight.w700,
+      //     letterSpacing: 1.2,
+      //   ),
+      // ),
     );
   }
 
   Widget _buildAppBar(BuildContext context) {
+    final dateStr = DateFormat('E, d MMM').format(DateTime.now()).toUpperCase();
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Text(
             'TRAIN',
@@ -168,22 +171,55 @@ class HomeScreen extends ConsumerWidget {
               color: Colors.white,
             ),
           ),
+          const Spacer(),
+          Text(
+            dateStr,
+            style: GoogleFonts.lexend(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1.4,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatsSection(BuildContext context, AsyncValue weeklyStatsAsync) {
+  Widget _buildStatsSection(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+    AsyncValue weeklyStatsAsync,
+  ) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('PERFORMANCE', style: Theme.of(context).textTheme.labelMedium),
+          GestureDetector(
+            onTap: () => context.go(AppRoutes.stats),
+            child: Row(
+              children: [
+                Text(
+                  'PERFORMANCE',
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 14,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 12),
           weeklyStatsAsync.when(
             loading: () => const _StatsPlaceholder(),
-            error: (err, st) => const _StatsPlaceholder(),
+            error: (err, st) => _StatsError(
+              onRetry: () => ref.invalidate(weeklyStatsProvider(userId)),
+            ),
             data: (stats) => _StatsData(stats: stats),
           ),
         ],
@@ -404,55 +440,307 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStrengthTrendsSection(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+  Widget _buildStrengthTrendsSection(
+    BuildContext context,
+    AsyncValue<List<PersonalRecord>> personalRecordsAsync,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Section header ────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'STRENGTH TRENDS',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const Spacer(),
+              // Right side: optional PR badge + SEE ALL link
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // "X NEW PRs THIS WEEK" badge — only shown when there are new PRs
+                  personalRecordsAsync.whenOrNull(
+                        data: (records) {
+                          final now = DateTime.now();
+                          final weekAgo = now.subtract(const Duration(days: 7));
+                          final newPrCount =
+                              records
+                                  .where(
+                                    (r) =>
+                                        r.isNew &&
+                                        r.achievedAt.isAfter(weekAgo),
+                                  )
+                                  .length;
+                          if (newPrCount == 0) return null;
+                          return Text(
+                            '$newPrCount NEW PR${newPrCount > 1 ? 's' : ''} THIS WEEK',
+                            style: GoogleFonts.lexend(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.2,
+                              color: AppColors.primary,
+                            ),
+                          );
+                        },
+                      ) ??
+                      const SizedBox.shrink(),
+                  TextButton(
+                    onPressed: () => context.go(AppRoutes.stats),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      'SEE ALL \u2192',
+                      style: GoogleFonts.lexend(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        // ── Scrollable card list / loading / empty ────────────────────────
+        personalRecordsAsync.when(
+          loading: () => _buildTrendLoadingState(),
+          error:
+              (_, _) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: _buildTrendEmptyState(),
+              ),
+          data: (records) {
+            if (records.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: _buildTrendEmptyState(),
+              );
+            }
+            // Sort by achievedAt descending — most recent first — then take 5
+            final sorted = List<PersonalRecord>.from(records)
+              ..sort((a, b) => b.achievedAt.compareTo(a.achievedAt));
+            final topPRs = sorted.take(5).toList();
+
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              // Padding handled per-card so first/last align to screen edges
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (int i = 0; i < topPRs.length; i++)
+                    Padding(
+                      padding: EdgeInsets.only(
+                        left: i == 0 ? 24 : 12,
+                        right: i == topPRs.length - 1 ? 24 : 0,
+                      ),
+                      child: _buildPRCard(topPRs[i]),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  /// Two skeleton placeholder cards shown during loading.
+  Widget _buildTrendLoadingState() {
+    Widget skeletonCard() => Container(
+      width: 160,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        border: const Border(
+          left: BorderSide(color: AppColors.primary, width: 4),
+        ),
+      ),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'STRENGTH TRENDS',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
+            '\u2014',
+            style: GoogleFonts.lexend(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildTrendBox(context, '185 KG', 'BARBELL BACK SQUAT'),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: _buildTrendBox(context, '115 LB', 'BENCH PRESS')),
-            ],
+          const SizedBox(height: 4),
+          Text(
+            'LOADING',
+            style: GoogleFonts.lexend(
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 24, right: 12),
+            child: skeletonCard(),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 24),
+            child: skeletonCard(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTrendBox(BuildContext context, String value, String label) {
+  /// Empty state — shown when there are no records or on error.
+  Widget _buildTrendEmptyState() {
     return Container(
-      color: AppColors.surfaceContainerLow,
-      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        border: Border(
+          left: BorderSide(color: AppColors.outlineVariant, width: 4),
+        ),
+      ),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            value,
+            'LOG YOUR FIRST WORKOUT TO SET PRs',
             style: GoogleFonts.lexend(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.0,
+              color: AppColors.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 8),
+          Text(
+            '\u2192 START WORKOUT',
+            style: GoogleFonts.lexend(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: AppColors.primary,
+            ),
+          ),
         ],
       ),
     );
   }
+
+  /// A single horizontally-scrollable PR card.
+  Widget _buildPRCard(PersonalRecord record) {
+    final relativeTime = _formatRelativeTime(record.achievedAt);
+
+    return Container(
+      width: 160,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        border: const Border(
+          left: BorderSide(color: AppColors.primary, width: 4),
+        ),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // "NEW PR" pill badge — only shown when isNew == true
+          if (record.isNew)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              color: AppColors.primary,
+              child: Text(
+                'NEW PR',
+                style: GoogleFonts.lexend(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.0,
+                  color: AppColors.onPrimary,
+                ),
+              ),
+            ),
+          const SizedBox(height: 6),
+          // Exercise name
+          Text(
+            record.exerciseName.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.lexend(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.8,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Weight × reps
+          Text(
+            '${record.weight.toStringAsFixed(1)} KG \u00d7 ${record.reps}',
+            style: GoogleFonts.lexend(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Estimated 1RM
+          Text(
+            '~${(record.weight * (1 + record.reps / 30.0)).toStringAsFixed(0)} KG E1RM',
+            style: GoogleFonts.lexend(
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Relative time
+          Text(
+            relativeTime,
+            style: GoogleFonts.lexend(
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+}
+
+/// Converts [dateTime] to a human-readable relative string.
+String _formatRelativeTime(DateTime dateTime) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final target = DateTime(dateTime.year, dateTime.month, dateTime.day);
+  final diff = today.difference(target).inDays;
+
+  if (diff == 0) return 'today';
+  if (diff == 1) return 'yesterday';
+  if (diff < 7) return '$diff days ago';
+  final weeks = (diff / 7).floor();
+  return '$weeks week${weeks > 1 ? 's' : ''} ago';
 }
 
 class _StatsPlaceholder extends StatelessWidget {
@@ -483,7 +771,60 @@ class _StatsPlaceholder extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        const _StatsRow(volume: '--', streak: '--', prs: '--'),
+        const _StatsRow(volume: '--', streak: '--', prs: '--', intensity: '--'),
+      ],
+    );
+  }
+}
+
+class _StatsError extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _StatsError({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.wifi_off,
+              color: AppColors.onSurfaceVariant,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              "COULDN'T LOAD STATS",
+              style: GoogleFonts.lexend(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.0,
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: onRetry,
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            padding: EdgeInsets.zero,
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Text(
+            'RETRY',
+            style: GoogleFonts.lexend(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -503,6 +844,7 @@ class _StatsData extends StatelessWidget {
             : stats.totalVolumeKg.toStringAsFixed(0);
     final streak = stats.currentStreak.toString();
     final prs = stats.totalPRsThisWeek.toString().padLeft(2, '0');
+    final intensity = '${stats.averageIntensity.round()}%';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,7 +869,7 @@ class _StatsData extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        _StatsRow(volume: volume, streak: streak, prs: prs),
+        _StatsRow(volume: volume, streak: streak, prs: prs, intensity: intensity),
       ],
     );
   }
@@ -537,11 +879,13 @@ class _StatsRow extends StatelessWidget {
   final String volume;
   final String streak;
   final String prs;
+  final String intensity;
 
   const _StatsRow({
     required this.volume,
     required this.streak,
     required this.prs,
+    required this.intensity,
   });
 
   @override
@@ -562,6 +906,12 @@ class _StatsRow extends StatelessWidget {
             thickness: 1,
           ),
           Expanded(child: _StatItem(label: 'PRs', value: prs)),
+          VerticalDivider(
+            color: AppColors.surfaceContainerHighest,
+            width: 1,
+            thickness: 1,
+          ),
+          Expanded(child: _StatItem(label: 'INTENSITY', value: intensity)),
         ],
       ),
     );
@@ -603,7 +953,14 @@ class _TemplatesGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayTemplates = templates.take(3).toList();
+    final sorted = List<WorkoutTemplate>.from(templates)
+      ..sort((a, b) {
+        if (a.lastUsed == null && b.lastUsed == null) return 0;
+        if (a.lastUsed == null) return 1;
+        if (b.lastUsed == null) return -1;
+        return b.lastUsed!.compareTo(a.lastUsed!);
+      });
+    final displayTemplates = sorted.take(3).toList();
 
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
@@ -668,9 +1025,34 @@ class _TemplateCard extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      '${template.exercises.length} EX',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (template.estimatedMinutes > 0) ...[
+                      Text(
+                        '  \u00b7  ',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      Text(
+                        '~${template.estimatedMinutes}m',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
                 Text(
-                  '${template.exercises.length} exercises',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  template.lastUsed != null
+                      ? _formatRelativeTime(template.lastUsed!)
+                      : 'never used',
+                  style: GoogleFonts.lexend(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.outlineVariant,
+                  ),
                 ),
               ],
             ),
@@ -812,7 +1194,7 @@ class _RecommendedCard extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       child: routineAsync.when(
         loading: () => const _RecommendedSkeleton(),
-        error: (_, _s) => const _RecommendedSkeleton(),
+        error: (_, _) => const _RecommendedSkeleton(),
         data: (routine) {
           // State 1 — no routine
           if (routine == null) {
@@ -954,6 +1336,14 @@ class _RecommendedRestDay extends StatelessWidget {
                 ),
             ],
           ),
+          const SizedBox(height: 8),
+          if (dayNumber > 0 && totalDays > 0)
+            LinearProgressIndicator(
+              value: dayNumber / totalDays,
+              minHeight: 3,
+              backgroundColor: AppColors.outlineVariant,
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
           const SizedBox(height: 12),
           Text(
             'REST',
@@ -1011,8 +1401,8 @@ class _RecommendedWorkoutDay extends ConsumerWidget {
     int extraCount = 0;
     if (template != null) {
       final exercises = template!.exercises;
-      exerciseNames = exercises.take(2).map((e) => e.exerciseName).toList();
-      extraCount = (exercises.length - 2).clamp(0, 999);
+      exerciseNames = exercises.take(4).map((e) => e.exerciseName).toList();
+      extraCount = (exercises.length - 4).clamp(0, 999);
     }
 
     return Container(
@@ -1039,6 +1429,13 @@ class _RecommendedWorkoutDay extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: dayNumber / totalDays,
+            minHeight: 3,
+            backgroundColor: AppColors.outlineVariant,
+            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+          ),
           const SizedBox(height: 12),
           Text(
             dayName,
@@ -1063,27 +1460,62 @@ class _RecommendedWorkoutDay extends ConsumerWidget {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
           ],
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerRight,
-            child: _CardButton(
-              label: 'START \u2192',
-              onPressed:
-                  template == null
-                      ? null
-                      : () async {
-                        final confirmed = await _showStartWorkoutDialog(
-                          context,
-                          template!,
-                        );
-                        if (confirmed && context.mounted) {
-                          ref
-                              .read(activeWorkoutProvider.notifier)
-                              .startWorkout(userId: userId, template: template);
-                          context.push(AppRoutes.activeWorkout);
-                        }
-                      },
+          if (template != null && template!.estimatedMinutes > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              '~${template!.estimatedMinutes} MIN',
+              style: GoogleFonts.lexend(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 1.0,
+                color: AppColors.onSurfaceVariant,
+              ),
             ),
+          ],
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton(
+                onPressed: () => context.push(AppRoutes.routine),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.onSurfaceVariant,
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'EDIT ROUTINE',
+                  style: GoogleFonts.lexend(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 1.0,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              _CardButton(
+                label: 'START \u2192',
+                onPressed:
+                    template == null
+                        ? null
+                        : () async {
+                          final confirmed = await _showStartWorkoutDialog(
+                            context,
+                            template!,
+                          );
+                          if (confirmed && context.mounted) {
+                            ref
+                                .read(activeWorkoutProvider.notifier)
+                                .startWorkout(
+                                  userId: userId,
+                                  template: template,
+                                );
+                            context.push(AppRoutes.activeWorkout);
+                          }
+                        },
+              ),
+            ],
           ),
         ],
       ),

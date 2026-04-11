@@ -68,8 +68,11 @@ class ActiveWorkoutState {
   }
 }
 
-class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState> {
-  ActiveWorkoutNotifier() : super(const ActiveWorkoutState());
+class ActiveWorkoutNotifier extends Notifier<ActiveWorkoutState> {
+  @override
+  ActiveWorkoutState build() {
+    return const ActiveWorkoutState();
+  }
 
   void startWorkout({required String userId, WorkoutTemplate? template}) {
     final now = DateTime.now();
@@ -108,6 +111,12 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState> {
       startTime: now,
       elapsedSeconds: 0,
     );
+
+    // Persist lastUsed on the template so the home screen card reflects it.
+    if (template != null) {
+      final updatedTemplate = template.copyWith(lastUsed: now);
+      ref.read(workoutRepositoryProvider).saveTemplate(userId, updatedTemplate);
+    }
   }
 
   void tickTimer() {
@@ -213,9 +222,9 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState> {
 }
 
 final activeWorkoutProvider =
-    StateNotifierProvider<ActiveWorkoutNotifier, ActiveWorkoutState>((ref) {
-      return ActiveWorkoutNotifier();
-    });
+    NotifierProvider<ActiveWorkoutNotifier, ActiveWorkoutState>(
+  ActiveWorkoutNotifier.new,
+);
 
 /// Persistent ticker that auto-starts/stops based on [activeWorkoutProvider].
 /// Runs at the Riverpod provider level so the timer keeps ticking even when

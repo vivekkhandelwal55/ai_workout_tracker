@@ -21,13 +21,14 @@ class StatsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userId =
-        ref.watch(authNotifierProvider).valueOrNull?.id ?? '';
+    final userId = ref.watch(authNotifierProvider).valueOrNull?.id ?? '';
 
     if (userId.isEmpty) {
       return const Scaffold(
         backgroundColor: AppColors.surface,
-        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
       );
     }
 
@@ -35,6 +36,16 @@ class StatsScreen extends ConsumerWidget {
     final personalRecordsAsync = ref.watch(personalRecordsProvider(userId));
     final strengthProgressAsync = ref.watch(strengthProgressProvider(userId));
     final historyAsync = ref.watch(workoutHistoryProvider(userId));
+
+    // Re-fetch strength progress whenever the selected exercise changes.
+    ref.listen<String>(
+      selectedExerciseForGraphProvider,
+      (_, next) {
+        if (next.isNotEmpty) {
+          ref.invalidate(strengthProgressProvider(userId));
+        }
+      },
+    );
 
     // Auto-select the top PR exercise for the chart once records load.
     // Must use ref.listen (not whenData during build) so state mutation
@@ -56,20 +67,23 @@ class StatsScreen extends ConsumerWidget {
     );
 
     final selectedExerciseId = ref.watch(selectedExerciseForGraphProvider);
-    final selectedExerciseName = personalRecordsAsync.valueOrNull
-        ?.firstWhere(
-          (r) => r.exerciseId == selectedExerciseId,
-          orElse: () => personalRecordsAsync.valueOrNull?.firstOrNull ??
-              PersonalRecord(
-                exerciseId: '',
-                exerciseName: '',
-                weight: 0,
-                reps: 0,
-                achievedAt: DateTime.now(),
-                isNew: false,
-              ),
-        )
-        .exerciseName;
+    final selectedExerciseName =
+        personalRecordsAsync.valueOrNull
+            ?.firstWhere(
+              (r) => r.exerciseId == selectedExerciseId,
+              orElse:
+                  () =>
+                      personalRecordsAsync.valueOrNull?.firstOrNull ??
+                      PersonalRecord(
+                        exerciseId: '',
+                        exerciseName: '',
+                        weight: 0,
+                        reps: 0,
+                        achievedAt: DateTime.now(),
+                        isNew: false,
+                      ),
+            )
+            .exerciseName;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -83,12 +97,12 @@ class StatsScreen extends ConsumerWidget {
                   // App Bar
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 16),
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
                       children: [
-                        Icon(Icons.menu,
-                            color: AppColors.onSurfaceVariant, size: 24),
-                        const SizedBox(width: 12),
                         Text(
                           'TRAIN',
                           style: GoogleFonts.lexend(
@@ -98,9 +112,6 @@ class StatsScreen extends ConsumerWidget {
                             color: AppColors.onSurface,
                           ),
                         ),
-                        const Spacer(),
-                        Icon(Icons.settings_outlined,
-                            color: AppColors.onSurfaceVariant, size: 24),
                       ],
                     ),
                   ),
@@ -141,16 +152,18 @@ class StatsScreen extends ConsumerWidget {
                                   return const SizedBox.shrink();
                                 }
                                 return GestureDetector(
-                                  onTap: () => _showExercisePicker(
-                                    context,
-                                    ref,
-                                    records,
-                                  ),
+                                  onTap:
+                                      () => _showExercisePicker(
+                                        context,
+                                        ref,
+                                        records,
+                                      ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        (selectedExerciseName ?? records.first.exerciseName)
+                                        (selectedExerciseName ??
+                                                records.first.exerciseName)
                                             .toUpperCase(),
                                         style: GoogleFonts.lexend(
                                           fontSize: 12,
@@ -173,10 +186,7 @@ class StatsScreen extends ConsumerWidget {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Container(
-                          height: 1,
-                          color: AppColors.outlineVariant,
-                        ),
+                        Container(height: 1, color: AppColors.outlineVariant),
                         const SizedBox(height: 16),
                         const StrengthRangeSelector(),
                         const SizedBox(height: 12),
@@ -191,12 +201,11 @@ class StatsScreen extends ConsumerWidget {
                                   child: Text(
                                     'No data yet — complete a workout to see your progress',
                                     textAlign: TextAlign.center,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: AppColors.onSurfaceVariant,
-                                        ),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall?.copyWith(
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
                                   ),
                                 ),
                               );
@@ -232,61 +241,66 @@ class StatsScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Container(
-                          height: 1,
-                          color: AppColors.outlineVariant,
-                        ),
+                        Container(height: 1, color: AppColors.outlineVariant),
                         personalRecordsAsync.when(
-                          loading: () => const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 24),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                  color: AppColors.primary),
-                            ),
-                          ),
-                          error: (err, st) => Padding(
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 24),
-                            child: Text(
-                              'Unable to load records.',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ),
+                          loading:
+                              () => const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                          error:
+                              (err, st) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24,
+                                ),
+                                child: Text(
+                                  'Unable to load records.',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
                           data: (records) {
                             if (records.isEmpty) {
                               return Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 24),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24,
+                                ),
                                 child: Center(
                                   child: Text(
                                     'No records yet — log some sets to track your PRs',
                                     textAlign: TextAlign.center,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: AppColors.onSurfaceVariant,
-                                        ),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall?.copyWith(
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
                                   ),
                                 ),
                               );
                             }
                             return Column(
-                              children: records
-                                  .map((pr) => _PRRecordRow(
-                                        pr: pr,
-                                        isSelectedForGraph:
-                                            pr.exerciseId == selectedExerciseId,
-                                        onTap: () {
-                                          ref
-                                              .read(
-                                                selectedExerciseForGraphProvider
-                                                    .notifier,
-                                              )
-                                              .state = pr.exerciseId;
-                                        },
-                                      ))
-                                  .toList(),
+                              children:
+                                  records
+                                      .map(
+                                        (pr) => _PRRecordRow(
+                                          pr: pr,
+                                          isSelectedForGraph:
+                                              pr.exerciseId ==
+                                              selectedExerciseId,
+                                          onTap: () {
+                                            ref
+                                                .read(
+                                                  selectedExerciseForGraphProvider
+                                                      .notifier,
+                                                )
+                                                .state = pr.exerciseId;
+                                          },
+                                        ),
+                                      )
+                                      .toList(),
                             );
                           },
                         ),
@@ -326,35 +340,39 @@ class StatsScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 16),
                         historyAsync.when(
-                          loading: () => const Center(
-                            child: CircularProgressIndicator(
-                                color: AppColors.primary),
-                          ),
-                          error: (err, st) => Text(
-                            'Unable to load history.',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
+                          loading:
+                              () => const Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                          error:
+                              (err, st) => Text(
+                                'Unable to load history.',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
                           data: (sessions) {
                             if (sessions.isEmpty) {
                               return Center(
                                 child: Text(
                                   'No sessions recorded yet',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: AppColors.onSurfaceVariant,
-                                      ),
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodySmall?.copyWith(
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
                                 ),
                               );
                             }
                             return Column(
-                              children: sessions
-                                  .map(
-                                    (session) =>
-                                        _WorkoutHistoryRow(session: session),
-                                  )
-                                  .toList(),
+                              children:
+                                  sessions
+                                      .map(
+                                        (session) => _WorkoutHistoryRow(
+                                          session: session,
+                                        ),
+                                      )
+                                      .toList(),
                             );
                           },
                         ),
@@ -380,73 +398,90 @@ class StatsScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceContainerLow,
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.8,
-        minChildSize: 0.4,
-        maxChildSize: 0.95,
-        builder: (ctx2, scrollController) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 36,
-                height: 4,
-                color: AppColors.surfaceContainerHighest,
-              ),
-            ),
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Text(
-                'WORKOUT HISTORY',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.6,
-                  color: AppColors.onSurface,
-                ),
-              ),
-            ),
-            Container(height: 1, color: AppColors.outlineVariant),
-            Expanded(
-              child: historyAsync.when(
-                loading: () => const Center(
-                  child:
-                      CircularProgressIndicator(color: AppColors.primary),
-                ),
-                error: (e, st) => Center(
-                  child: Text('Unable to load history.',
-                      style: GoogleFonts.lexend(
-                          color: AppColors.onSurfaceVariant)),
-                ),
-                data: (sessions) {
-                  if (sessions.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'No sessions recorded yet',
-                        style: GoogleFonts.lexend(
-                            color: AppColors.onSurfaceVariant),
+      builder:
+          (ctx) => DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.8,
+            minChildSize: 0.4,
+            maxChildSize: 0.95,
+            builder:
+                (ctx2, scrollController) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 12, bottom: 8),
+                        width: 36,
+                        height: 4,
+                        color: AppColors.surfaceContainerHighest,
                       ),
-                    );
-                  }
-                  return ListView.separated(
-                    controller: scrollController,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 8),
-                    itemCount: sessions.length,
-                    separatorBuilder: (_, i) => Container(
-                        height: 1, color: AppColors.outlineVariant),
-                    itemBuilder: (_, i) =>
-                        _WorkoutHistoryRow(session: sessions[i]),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
+                      child: Text(
+                        'WORKOUT HISTORY',
+                        style: GoogleFonts.lexend(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.6,
+                          color: AppColors.onSurface,
+                        ),
+                      ),
+                    ),
+                    Container(height: 1, color: AppColors.outlineVariant),
+                    Expanded(
+                      child: historyAsync.when(
+                        loading:
+                            () => const Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.primary,
+                              ),
+                            ),
+                        error:
+                            (e, st) => Center(
+                              child: Text(
+                                'Unable to load history.',
+                                style: GoogleFonts.lexend(
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                        data: (sessions) {
+                          if (sessions.isEmpty) {
+                            return Center(
+                              child: Text(
+                                'No sessions recorded yet',
+                                style: GoogleFonts.lexend(
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                            );
+                          }
+                          return ListView.separated(
+                            controller: scrollController,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 8,
+                            ),
+                            itemCount: sessions.length,
+                            separatorBuilder:
+                                (_, i) => Container(
+                                  height: 1,
+                                  color: AppColors.outlineVariant,
+                                ),
+                            itemBuilder:
+                                (_, i) =>
+                                    _WorkoutHistoryRow(session: sessions[i]),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+          ),
     );
   }
 
@@ -490,9 +525,8 @@ class StatsScreen extends ConsumerWidget {
                     style: Theme.of(ctx).textTheme.labelSmall,
                   ),
                   onTap: () {
-                    ref
-                        .read(selectedExerciseForGraphProvider.notifier)
-                        .state = pr.exerciseId;
+                    ref.read(selectedExerciseForGraphProvider.notifier).state =
+                        pr.exerciseId;
                     Navigator.of(ctx).pop();
                   },
                 ),
@@ -570,10 +604,7 @@ class _StatTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall,
-          ),
+          Text(label, style: Theme.of(context).textTheme.labelSmall),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -667,10 +698,7 @@ class _VolumeStatTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                'STREAK',
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
+              Text('STREAK', style: Theme.of(context).textTheme.labelSmall),
               const SizedBox(height: 4),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -681,9 +709,10 @@ class _VolumeStatTile extends StatelessWidget {
                     style: GoogleFonts.lexend(
                       fontSize: 36,
                       fontWeight: FontWeight.w800,
-                      color: stats.currentStreak > 0
-                          ? AppColors.primary
-                          : AppColors.onSurfaceVariant,
+                      color:
+                          stats.currentStreak > 0
+                              ? AppColors.primary
+                              : AppColors.onSurfaceVariant,
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -731,31 +760,39 @@ class StrengthRangeSelector extends ConsumerWidget {
     };
 
     return Row(
-      children: StrengthRange.values.map((range) {
-        final isSelected = range == selected;
-        return GestureDetector(
-          onTap: () =>
-              ref.read(selectedStrengthRangeProvider.notifier).state = range,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            margin: const EdgeInsets.only(right: 8),
-            color: isSelected
-                ? AppColors.primary.withValues(alpha: 0.15)
-                : Colors.transparent,
-            child: Text(
-              labels[range]!,
-              style: GoogleFonts.lexend(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.4,
-                color: isSelected
-                    ? AppColors.primary
-                    : AppColors.onSurfaceVariant,
+      children:
+          StrengthRange.values.map((range) {
+            final isSelected = range == selected;
+            return GestureDetector(
+              onTap:
+                  () =>
+                      ref.read(selectedStrengthRangeProvider.notifier).state =
+                          range,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                margin: const EdgeInsets.only(right: 8),
+                color:
+                    isSelected
+                        ? AppColors.primary.withValues(alpha: 0.15)
+                        : Colors.transparent,
+                child: Text(
+                  labels[range]!,
+                  style: GoogleFonts.lexend(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.4,
+                    color:
+                        isSelected
+                            ? AppColors.primary
+                            : AppColors.onSurfaceVariant,
+                  ),
+                ),
               ),
-            ),
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
     );
   }
 }
@@ -768,9 +805,10 @@ class _StrengthChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spots = dataPoints.asMap().entries.map((e) {
-      return FlSpot(e.key.toDouble(), e.value.e1rm);
-    }).toList();
+    final spots =
+        dataPoints.asMap().entries.map((e) {
+          return FlSpot(e.key.toDouble(), e.value.e1rm);
+        }).toList();
 
     final e1rmValues = dataPoints.map((p) => p.e1rm).toList();
     final yMin = (e1rmValues.reduce(min) * 0.9).floorToDouble();
@@ -788,10 +826,11 @@ class _StrengthChart extends StatelessWidget {
             show: true,
             drawVerticalLine: false,
             horizontalInterval: yInterval,
-            getDrawingHorizontalLine: (value) => FlLine(
-              color: AppColors.surfaceContainerHighest,
-              strokeWidth: 1,
-            ),
+            getDrawingHorizontalLine:
+                (value) => FlLine(
+                  color: AppColors.surfaceContainerHighest,
+                  strokeWidth: 1,
+                ),
           ),
           titlesData: FlTitlesData(
             topTitles: const AxisTitles(
@@ -839,9 +878,10 @@ class _StrengthChart extends StatelessWidget {
                   if (idx % step != 0 && idx != dataPoints.length - 1) {
                     return const SizedBox.shrink();
                   }
-                  final label = DateFormat('MMM d')
-                      .format(dataPoints[idx].date)
-                      .toUpperCase();
+                  final label =
+                      DateFormat(
+                        'MMM d',
+                      ).format(dataPoints[idx].date).toUpperCase();
                   return Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
@@ -913,19 +953,20 @@ class _StrengthChart extends StatelessWidget {
                       color: AppColors.onSurface,
                       height: 1.6,
                     ),
-                    children: pt.isPR
-                        ? [
-                            TextSpan(
-                              text: '\nPR',
-                              style: GoogleFonts.lexend(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
-                                letterSpacing: 1.2,
+                    children:
+                        pt.isPR
+                            ? [
+                              TextSpan(
+                                text: '\nPR',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary,
+                                  letterSpacing: 1.2,
+                                ),
                               ),
-                            ),
-                          ]
-                        : [],
+                            ]
+                            : [],
                   );
                 }).toList();
               },
@@ -1065,10 +1106,7 @@ class _PRRecordRow extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  dateStr,
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
+                Text(dateStr, style: Theme.of(context).textTheme.labelSmall),
               ],
             ),
           ],
@@ -1109,10 +1147,7 @@ class _WorkoutHistoryRow extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    dateStr,
-                    style: Theme.of(context).textTheme.labelSmall,
-                  ),
+                  Text(dateStr, style: Theme.of(context).textTheme.labelSmall),
                 ],
               ),
             ),
